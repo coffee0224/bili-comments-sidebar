@@ -361,7 +361,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.5</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.6</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -513,6 +513,7 @@
           clearInterval(bootPoll);
           S.bootDone = true;
           sb.classList.remove('bcs-boot');
+          mountSidebar(); // reposition sb LAST→FIRST child now that boot is over
           if (S.tabMode !== 'intro') setNativeCollapsed(true);
           console.log('[BCS] boot 完成', { mounted: true, t, ready, imgs: imgs.length });
         }
@@ -636,7 +637,17 @@
     let sb = document.getElementById('bili-comments-sidebar') || S.sb;
     const rc = document.querySelector('.right-container');
     if (!sb || !rc || !rightSettled(rc)) return false;
-    if (rc.lastElementChild !== sb) rc.appendChild(sb); // never steal firstChild
+    // Position: LAST child while the boot window is open (any foreign
+    // first-child presence during B站's mount permanently breaks the
+    // video-awesome-img registry — grey images). Once boot is done we
+    // reposition to FIRST child so the tab bar sits at the top of the
+    // right column in BOTH tabs (with sb last, expanding 简介 pushed
+    // the tabs 3000px below the fold — unreachable).
+    if (S.bootDone) {
+      if (rc.firstElementChild !== sb) rc.insertBefore(sb, rc.firstChild);
+    } else {
+      if (rc.lastElementChild !== sb) rc.appendChild(sb);
+    }
     // re-assert the desired state after a rebuild replaced the native
     // blocks (fresh nodes have no .bcs-native-hide)
     if (S.bootDone && S.tabMode !== 'intro') setNativeCollapsed(true);
@@ -953,7 +964,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.5 mode=' + BCS_MODE +
+  console.log('[BCS] v2.6 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
