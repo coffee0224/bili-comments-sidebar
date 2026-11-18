@@ -180,3 +180,41 @@ test('renderPictures builds thumbnail links', () => {
   assert.ok(out.includes('bcs-pic-link'));
   assert.ok(out.includes('@360w.webp'));
 });
+
+/* ---------- linkifyUrls ---------- */
+
+test('linkifyUrls wraps raw http(s) URLs between tags', () => {
+  const out = L.linkifyUrls('>看这个 https://a.com/x 很好<');
+  assert.ok(out.includes('<a class="bcs-link" href="https://a.com/x" target="_blank"'));
+  assert.ok(out.includes('>https://a.com/x</a>'));
+  assert.ok(!out.includes('href="看这个'));
+});
+
+test('linkifyUrls keeps trailing punctuation out of the link', () => {
+  const out = L.linkifyUrls('>https://a.com/p1，下句<');
+  assert.ok(out.includes('href="https://a.com/p1"'));
+  assert.ok(out.endsWith('，下句<'));
+  const out2 = L.linkifyUrls('>见 https://b.com。<');
+  assert.ok(out2.includes('href="https://b.com"'));
+  assert.ok(out2.includes('</a>。<'));
+});
+
+test('linkifyUrls never touches tag attributes or non-URL text', () => {
+  const html = '<img src="https://cdn.example/e.png" alt="e">官网 www.a.com 逛逛<';
+  const out = L.linkifyUrls(html);
+  assert.ok(out.startsWith('<img src="https://cdn.example/e.png" alt="e">'),
+    'attribute must stay untouched');
+  assert.ok(!out.includes('href="www.a.com"'), 'no scheme -> no link');
+  assert.ok(!out.includes('href="https://cdn.example'), 'tag URL must not be linkified');
+});
+
+test('linkifyUrls handles query strings with escaped entities', () => {
+  // input is already HTML-escaped: & became &amp;
+  const out = L.linkifyUrls('>https://a.com/s?x=1&amp;y=2 end<');
+  assert.ok(out.includes('href="https://a.com/s?x=1&amp;y=2"'));
+});
+
+test('linkifyUrls leaves text without :// alone', () => {
+  const html = '<p>plain 12:34 text</p>';
+  assert.strictEqual(L.linkifyUrls(html), html);
+});

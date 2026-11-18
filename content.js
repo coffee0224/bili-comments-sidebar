@@ -1,5 +1,5 @@
 /* ============================================================
-   Bili Comments Sidebar — fork v3.2 (content script)
+   Bili Comments Sidebar — fork v3.4 (content script)
 
    WHAT THIS DOES
    - Adds a tabbed column over B站's native right column:
@@ -37,7 +37,7 @@
 
   const {
     bvidFromPath, videoInfoFromHtml, buildTree, timeAgo, esc,
-    imgUrl, fmtMsg, fmtLike, linkifyTime, parseTimeSec, highlight,
+    imgUrl, fmtMsg, fmtLike, linkifyTime, linkifyUrls, parseTimeSec, highlight,
     applyEmotes, renderPictures,
   } = BCSLib;
 
@@ -221,7 +221,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.2.0</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.4.0</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -565,6 +565,7 @@
     let body = fmtMsg(ct.message);
     body = applyEmotes(body, ct.emote);
     body = linkifyTime(body);
+    body = linkifyUrls(body);
     if (S.filter) body = highlight(body, S.filter);
     body += renderPictures(ct.pictures);
 
@@ -670,7 +671,7 @@
     load(true);
   }
 
-  console.log('[BCS] v3.2.0 ready');
+  console.log('[BCS] v3.4.0 ready');
   if (document.readyState === 'loading')
     document.addEventListener('DOMContentLoaded', init);
   else

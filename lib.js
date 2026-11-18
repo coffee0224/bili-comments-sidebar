@@ -174,6 +174,37 @@ const BCSLib = (() => {
   }
 
   /* ============================================================
+     URL LINKIFY
+     Raw http(s) URLs in comment text become clickable anchors
+     (target=_blank, so B站's tab is left alone). Only text BETWEEN
+     tags is touched — same guard as linkifyTime/highlight — so tag
+     attributes (img src etc.) are never modified. Trailing ASCII +
+     中文 punctuation is kept OUT of the link.
+     Input is ALREADY HTML-escaped text: entities like &amp; inside
+     a URL stay entities, which is valid in both href and display.
+     ============================================================ */
+
+  // ASCII-only URL chars: excludes quotes/brackets/angles (injection
+  // safety) AND all non-ASCII (\u0080-\uffff), so 中文标号 like ，。）
+  // naturally terminate the URL — comments never pad them with
+  // spaces. Trailing ASCII punctuation (. , ; : ) ! ?) is legal in
+  // URLs; URL_TAIL_RE moves it out of the link.
+  const URL_RE = /(https?:\/\/[^\s"'<>\[\]\u0080-\uffff]+)/g;
+  const URL_TAIL_RE = /[),.;:!?，。；：！？）】》」』"']+$/;
+
+  function linkifyUrls(html) {
+    return html.replace(/>([^<]+)</g, (whole, t) => {
+      if (!t.includes('://')) return whole;
+      return '>' + t.replace(URL_RE, (m) => {
+        const url = m.replace(URL_TAIL_RE, '');
+        const tail = m.slice(url.length);
+        const a = `<a class="bcs-link" href="${url}" target="_blank" rel="noopener noreferrer nofollow">${url}</a>`;
+        return tail ? a + tail : a;
+      }) + '<';
+    });
+  }
+
+  /* ============================================================
      COMMENT CONTENT RICH RENDERING (string -> HTML)
      ============================================================ */
 
@@ -216,6 +247,7 @@ const BCSLib = (() => {
     fmtLike,
     TIME_RE,
     linkifyTime,
+    linkifyUrls,
     parseTimeSec,
     highlight,
     applyEmotes,

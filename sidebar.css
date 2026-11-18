@@ -345,6 +345,14 @@ html.bcs-intro-page .right-container-inner {
 .bcs-c-body img.bcs-emote { height: 20px; vertical-align: text-bottom; margin: 0 1px; }
 .bcs-c-body img.bcs-emote[src=""] { display: none; }
 
+/* ---- Inline links (raw URLs linkified by lib.linkifyUrls) ---- */
+.bcs-c-body a.bcs-link {
+  color: var(--link);
+  text-decoration: none;
+  word-break: break-all; /* long URLs must not blow the narrow column */
+}
+.bcs-c-body a.bcs-link:hover { text-decoration: underline; }
+
 /* ---- Pictures ---- */
 .bcs-pics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .bcs-pic-link {
