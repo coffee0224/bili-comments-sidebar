@@ -2,6 +2,26 @@
   'use strict';
 
   /* ============================================================
+     DIAGNOSTIC MODE  (temporary — bisects the grey-images bug)
+     localStorage.bcsMode on the bilibili origin gates features:
+       full     everything on (default, current behaviour)
+       off      script does NOTHING at all
+       nostyle  skip style injection + html.bcs-layout class
+       nomount  skip inserting into .right-container (sb stays at body end)
+       nofetch  skip our API fetches (comments show 加载中 forever)
+       norescue skip the window capture listeners
+     ============================================================ */
+  const BCS_MODE = (() => {
+    try { return localStorage.getItem('bcsMode') || 'full'; } catch (e) { return 'full'; }
+  })();
+  const MODE = {
+    style:  !['off', 'nostyle'].includes(BCS_MODE),
+    mount:  !['off', 'nomount'].includes(BCS_MODE),
+    fetch:  !['off', 'nofetch'].includes(BCS_MODE),
+    rescue: !['off', 'norescue'].includes(BCS_MODE),
+  };
+
+  /* ============================================================
      STATE
      ============================================================ */
   const S = {
@@ -502,16 +522,11 @@
     }, { root: scroller, rootMargin: '600px 0px' }).observe(sb.querySelector('#J-sentinel'));
 
     // ---- event rescue v2 ----------------------------------------------
-    // bilibili sometimes stacks invisible overlays (.bpx-player-filter-*,
-    // mirror-player clones, …) above the right column, and some page states
-    // set pointer-events:none on ancestors of .right-container. Both swallow
-    // REAL mouse events over the sidebar while programmatic clicks still
-    // work. Capture-phase listeners on WINDOW see every event before any
-    // page listener; when the hit target is foreign but the pointer is inside
-    // our sidebar, forward the event to our own element.
+    // (gated by MODE.rescue for the grey-images bisect)
     const INTERACTIVE = '.bcs-pill,.bcs-more-btn,.bcs-time,.bcs-jump,.bcs-theme-btn,' +
                         '.bcs-icon-btn,.bcs-footer-btn,.bcs-load-btn,.bcs-collapse,' +
                         'button,a,input';
+    if (MODE.rescue) {
     // hit-test that works even when pointer-events:none makes elementsFromPoint
     // skip our subtree: geometric rect containment over our interactive nodes.
     const hitMine = (s, x, y) => {
@@ -558,6 +573,7 @@
       e.preventDefault(); e.stopPropagation();
       sc.scrollTop += e.deltaY;
     }, { capture: true, passive: false });
+    } // MODE.rescue
   }
 
   function $(id) { return document.getElementById(id); }
@@ -599,8 +615,11 @@
   }
 
   function applyLayout() {
-    injectLayoutStyle();
-    document.documentElement.classList.add('bcs-layout');
+    if (MODE.style) {
+      injectLayoutStyle();
+      document.documentElement.classList.add('bcs-layout');
+    }
+    if (!MODE.mount) return;
     if (!mountSidebar()) {
       // right column not rendered yet — retry until it appears
       const t = setInterval(() => {
@@ -614,6 +633,11 @@
      LOAD ROOT COMMENTS
      ============================================================ */
   async function load(reset) {
+    if (!MODE.fetch) { // diagnostic: our API calls suspended
+      const l = $('J-list');
+      if (l) l.innerHTML = '<div class="bcs-state">诊断模式 nofetch：评论请求已禁用</div>';
+      return;
+    }
     if (S.loading) return;
     const list = $('J-list');
     const rb = $('J-refresh');
@@ -863,7 +887,7 @@
     let last = location.href;
     new MutationObserver(() => {
       // Re-mount if B站 rebuilt the right column without our block
-      mountSidebar();
+      if (MODE.mount) mountSidebar();
       if (location.href !== last) {
         last = location.href;
         S.oid = null; S.upMid = null;
@@ -886,9 +910,14 @@
     load(true);
   }
 
-  if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', init);
-  else
-    init();
+  console.log('[BCS] v2.2-diag mode=' + BCS_MODE +
+    ' style:' + MODE.style + ' mount:' + MODE.mount +
+    ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
+  if (BCS_MODE !== 'off') {
+    if (document.readyState === 'loading')
+      document.addEventListener('DOMContentLoaded', init);
+    else
+      init();
+  }
 
 })();
