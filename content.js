@@ -1,11 +1,11 @@
 /* ============================================================
-   Bili Comments Sidebar — fork v3.1 (content script)
+   Bili Comments Sidebar — fork v3.2 (content script)
 
    WHAT THIS DOES
    - Adds a tabbed column over B站's native right column:
      [简介] = B站原生右栏（相关视频等, 只是被推到标签行下方）
      [评论] = 本扩展的评论区（时间戳可点击跳转）
-   - Hides B站's own comment section below the player.
+   - B站原生评论区（播放器下方）保持原样显示，与右栏互不干扰。
 
    ARCHITECTURE (hard-won constraints — read before touching)
    1. Our root node #bili-comments-sidebar lives on <body> FOREVER.
@@ -221,7 +221,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.1.0</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.2.0</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -318,22 +318,6 @@
      PAGE LAYOUT
      ============================================================ */
 
-  // Hide B站's own comment section below the player (the duplicate)
-  function injectLayoutStyle() {
-    if (document.getElementById('bcs-layout-style')) return;
-    const st = document.createElement('style');
-    st.id = 'bcs-layout-style';
-    st.textContent = `
-      html.bcs-layout #commentapp,
-      html.bcs-layout .comment-container,
-      html.bcs-layout .bili-comment-container,
-      html.bcs-layout #comment {
-        display: none !important;
-      }
-    `;
-    document.documentElement.appendChild(st);
-  }
-
   // The native right column has its first cards — B站's mount window
   // is over; reading rects / docking now is safe.
   function rightSettled(rc) {
@@ -388,7 +372,9 @@
   }
 
   function applyLayout() {
-    injectLayoutStyle();
+    // bcs-layout class drives the right-column mode CSS in
+    // sidebar.css; B站's own comment section below the player is
+    // intentionally NOT hidden (v3.2) — it coexists with the sidebar.
     document.documentElement.classList.add('bcs-layout');
     startDriftWatch();
     if (!positionSidebar()) {
@@ -684,7 +670,7 @@
     load(true);
   }
 
-  console.log('[BCS] v3.1.0 ready');
+  console.log('[BCS] v3.2.0 ready');
   if (document.readyState === 'loading')
     document.addEventListener('DOMContentLoaded', init);
   else
