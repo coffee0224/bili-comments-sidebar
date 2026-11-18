@@ -361,7 +361,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.3</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.4</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -495,18 +495,25 @@
       S.bootDone = false;
       setNativeCollapsed(false); // rebuilt native blocks start visible
       sb.classList.add('bcs-boot'); // hide ours → native in viewport
-      const t0 = Date.now();
+      let t0 = Date.now();
+      const abs0 = Date.now(); // absolute cap independent of mount delay
       bootPoll = setInterval(() => {
-        window.dispatchEvent(new Event('scroll')); // nudge scroll-driven mounts
+        // while sb still awaits mounting (end of <body>), DON'T run the
+        // boot clock — the poll would read page-wide imgs and the finish
+        // branch would fire before we're even in the right column.
         const rc = sb.parentElement;
-        const imgs = rc ? [...rc.querySelectorAll('img')] : [];
+        const mounted = rc && rc.classList.contains('right-container');
+        if (!mounted) { t0 = Date.now(); return; }
+        window.dispatchEvent(new Event('scroll')); // nudge scroll-driven mounts
+        const imgs = [...rc.querySelectorAll('img')];
         const ready = imgs.length > 0 && imgs.every(i => i.complete);
         const t = Date.now() - t0;
-        if ((ready && t >= 1500) || t >= 6000) {
+        if ((ready && t >= 1500) || t >= 6000 || Date.now() - abs0 > 10000) {
           clearInterval(bootPoll);
           S.bootDone = true;
           sb.classList.remove('bcs-boot');
           if (S.tabMode !== 'intro') setNativeCollapsed(true);
+          console.log('[BCS] boot 完成', { mounted: true, t, ready, imgs: imgs.length });
         }
       }, 250);
     };
@@ -634,7 +641,10 @@
   function setNativeCollapsed(collapsed) {
     const sb = document.getElementById('bili-comments-sidebar');
     const rc = sb && sb.parentElement;
-    if (!rc) return;
+    // NEVER operate outside .right-container (during the pre-mount phase
+    // sb hangs at the end of <body>; touching body children would nuke
+    // the whole page).
+    if (!rc || !rc.classList.contains('right-container')) return;
     [...rc.children].forEach(el => {
       if (el !== sb) el.classList.toggle('bcs-native-hide', collapsed);
     });
@@ -936,7 +946,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.3 mode=' + BCS_MODE +
+  console.log('[BCS] v2.4 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
