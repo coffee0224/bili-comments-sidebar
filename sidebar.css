@@ -108,16 +108,17 @@ html.bcs-intro-page #bili-comments-sidebar {
 }
 
 /* ============================================================
-   SHELL - fixed panel on <body> (v2.13). Its box (left/top/width/
-   height) is set inline by positionSidebar() from the native
-   .right-container rect, so it always sits in the exact slot the
-   (visibility:hidden) native column still reserves. Internal layout:
-   flex column, header fixed height, list flexes and scrolls itself,
-   footer pinned.
+   SHELL - body-mounted panel emulating the in-flow v2.11 look
+   (v2.14). The node never enters #app (that crashes bili-header),
+   but its box tracks the native .right-container slot every frame:
+   top follows the slot exactly (page scroll moves the panel like an
+   in-flow block), left/width follow on resize/SPA/theater drift.
+   No border/shadow/radius - it must read as part of the page, not a
+   floating card.
    ============================================================ */
 #bili-comments-sidebar {
   position: fixed;
-  z-index: 1000;         /* above page content; the old store build used the same pattern */
+  z-index: 1000;
   /* pointer-events: some page states set pointer-events:none on an ancestor.
      Inherited none makes our whole subtree un-hit-testable: real clicks pass
      through and elementsFromPoint() skips our nodes. Re-enabling here
@@ -126,13 +127,9 @@ html.bcs-intro-page #bili-comments-sidebar {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  height: auto;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 
 /* Smooth color transition when switching themes */
@@ -297,6 +294,7 @@ html.bcs-intro-page #bcs-fab { display: inline-flex; }
 .bcs-list {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: min(75vh, 1200px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;

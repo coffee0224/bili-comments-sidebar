@@ -361,7 +361,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.13</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.14</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -586,15 +586,11 @@
               rc.querySelector('.video-pod'));
   }
   function positionSidebar() {
-    // v2.13: the sidebar NEVER enters B站's DOM. Insertion into
-    // .right-container OR its parent .video-container-v1 (both inside
-    // #app) during B站's mount/rebuild window crashes the bili-header
-    // fragment-anchor remount (nextSibling of null → empty
-    // #biliMainHeader → site nav gone). The store-original pattern —
-    // fixed node on <body> — never triggered it. So: sb stays on
-    // <body>, position:fixed, and we compute its box from the native
-    // .right-container rect (which still occupies layout space because
-    // comments mode hides it with visibility:hidden, not display:none).
+    // v2.14: body-mounted panel that EMULATES the in-flow v2.11 look:
+    // left/width lock to the native rc slot, and the TOP follows the
+    // slot rect every frame (rAF-throttled scroll listener), so page
+    // scrolling moves the panel exactly like an in-flow column did.
+    // Never enters #app — that is what crashed bili-header.
     const sb = document.getElementById('bili-comments-sidebar') || S.sb;
     const rc = document.querySelector('.right-container');
     if (!sb || !rc || !rightSettled(rc)) return false;
@@ -604,26 +600,36 @@
       if (sb.style.display !== 'none') sb.style.display = 'none';
       return true;
     }
-    // idempotent: the MutationObserver calls this on every page mutation;
-    // only write styles when the target box actually changed
-    const left = Math.round(r.left), top = Math.max(84, Math.round(r.top));
-    const w = Math.round(r.width), h = Math.round(Math.min(window.innerHeight - 100, r.height + 400));
     if (sb.style.display === 'none') sb.style.display = '';
+    // height is content-driven (list capped by CSS at 75vh); only the
+    // slot-following top + left/width are geometry we own
+    const left = Math.round(r.left), top = Math.round(r.top);
+    const w = Math.round(r.width);
     if (Number(sb.dataset.l) === left && Number(sb.dataset.t) === top &&
-        Number(sb.dataset.w) === w && Number(sb.dataset.h) === h) return true;
-    sb.dataset.l = left; sb.dataset.t = top; sb.dataset.w = w; sb.dataset.h = h;
+        Number(sb.dataset.w) === w) return true;
+    sb.dataset.l = left; sb.dataset.t = top; sb.dataset.w = w;
     sb.style.left = left + 'px';
     sb.style.top = top + 'px';
     sb.style.width = w + 'px';
-    sb.style.height = h + 'px';
+    sb.style.height = ''; // auto — v2.11 look
     return true;
   }
   S.position = positionSidebar;
 
-  let driftTimer = null;
+  let driftTimer = null, scrollHooked = false;
   function startDriftWatch() {
     if (driftTimer) return;
-    // cheap 1s check: rc box moved (resize/SPA/theater) → re-dock
+    // page scroll moves the slot -> move the panel with it (in-flow feel)
+    if (!scrollHooked) {
+      scrollHooked = true;
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (ticking || S.tabMode === 'intro') return;
+        ticking = true;
+        requestAnimationFrame(() => { ticking = false; positionSidebar(); });
+      }, { passive: true });
+    }
+    // cheap 1s check catches resize / SPA / theater drift of left+width
     driftTimer = setInterval(() => {
       if (S.tabMode === 'intro') return; // hidden anyway
       positionSidebar();
@@ -931,7 +937,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.13 mode=' + BCS_MODE +
+  console.log('[BCS] v2.14 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
