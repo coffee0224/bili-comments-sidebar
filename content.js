@@ -48,7 +48,7 @@
     // rpid -> { replies:[], done:bool }
     expanded: {},
     theme: 'light',  // 'light' matches B站 native page; toggle to 'dark' via header button
-    tabMode: 'comments', // 'comments' | 'intro'
+    tabMode: 'intro',    // 'comments' | 'intro' — default tab is 简介
     bootDone: false,     // boot window finished → safe to collapse native blocks
   };
 
@@ -337,15 +337,16 @@
   function createUI() {
     const sb = document.createElement('div');
     sb.id = 'bili-comments-sidebar';
+    sb.className = 'bcs-intro-mode'; // v2.9: default tab is 简介
     sb.innerHTML = `
       <div class="bcs-header">
         <div class="bcs-header-row">
           <div class="bcs-tabs">
-            <button class="bcs-tab on" id="J-tab-c" title="视频评论">
+            <button class="bcs-tab on" id="J-tab-i" title="B站右栏原内容（相关视频等）">简介</button>
+            <button class="bcs-tab" id="J-tab-c" title="视频评论">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
               评论 <span class="cnt" id="J-cnt">0</span>
             </button>
-            <button class="bcs-tab" id="J-tab-i" title="B站右栏原内容（相关视频等）">简介</button>
           </div>
           <div class="bcs-header-actions">
             <button class="bcs-theme-btn" id="J-theme" title="切换明亮/暗黑模式">
@@ -371,7 +372,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.8</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.9</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -974,7 +975,7 @@
         S.oid = null; S.upMid = null;
         S.comments = []; S.page = 1;
         S.hasMore = true; S.expanded = {};
-        if (S.setTab) S.setTab('comments'); // new video → reset to comments tab
+        if (S.setTab) S.setTab('intro'); // new video → default to 简介 tab
         if (S.scheduleCollapse) S.scheduleCollapse(); // rebuilt right column → render-then-collapse again
         setTimeout(() => { load(true); }, 800);
       }
@@ -991,7 +992,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.8 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
+  console.log('[BCS] v2.9 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
