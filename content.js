@@ -339,7 +339,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.7</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.8</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -434,17 +434,21 @@
         // scroll/resize so bilibili's own listeners re-evaluate.
         const wake = () => {
           const parent = sb.parentElement;
-          if (!parent) return;
-          parent.querySelectorAll('img').forEach(img => {
-            const ds = img.dataset.src || img.dataset.original;
-            const s = img.getAttribute('src') || '';
-            if (ds && (!s || s.startsWith('data:'))) img.src = ds;
-          });
+          if (parent) {
+            parent.querySelectorAll('img').forEach(img => {
+              img.loading = 'eager'; // native loading=lazy: force fetch now
+              const ds = img.dataset.src || img.dataset.original;
+              const s = img.getAttribute('src') || '';
+              if (ds && (!s || s.startsWith('data:'))) img.src = ds;
+            });
+          }
           window.dispatchEvent(new Event('scroll'));
           window.dispatchEvent(new Event('resize'));
         };
         requestAnimationFrame(wake);
-        setTimeout(wake, 350); // some listeners bind after paint
+        // second shot + a REAL 1px scroll round-trip: loaders that ignore
+        // synthetic events still react to actual scrollY movement
+        setTimeout(() => { wake(); window.scrollBy(0, 1); window.scrollBy(0, -1); }, 350);
       }
     };
     S.setTab = setTab;
