@@ -85,7 +85,7 @@ npm test      # node --test tests/  （需要 Node 18+；PATH 上的 node 必须
 npm run check # node --check lib.js content.js
 ```
 
-纯逻辑全部下沉 `lib.js` 并有 25 个单测覆盖（时间解析、万位格式化、相对时间、评论树嵌套/孤儿/排序、转义、时间戳链接化、URL 链接化、高亮转义、SSR 提取、表情、图片）。DOM 胶水层无自动化测试，靠手动回归清单：顶部导航存活、双标签切换、楼中楼展开、时间戳 seek、滚轮不拖页、无限加载、SPA 切视频。
+纯逻辑全部下沉 `lib.js` 并有 29 个单测覆盖（时间解析、万位格式化、相对时间、评论树嵌套/孤儿/排序、转义、时间戳链接化、URL 链接化含整条裸 URL 边界、高亮转义、SSR 提取、表情、图片）。DOM 胶水层无自动化测试，靠手动回归清单：顶部导航存活、双标签切换、楼中楼展开、时间戳 seek、滚轮不拖页、无限加载、SPA 切视频。
 
 ## 相对商店版 1.3.0 的改动
 
@@ -96,7 +96,8 @@ npm run check # node --check lib.js content.js
 5. v3.0 工程重构：纯函数库 + 单元测试、删除诊断脚手架（bcsMode/bcsBoot 门、事件救援层、启动窗口）、清理死代码与过期注释、manifest 3.0.0。
 6. v3.1：删除明暗主题切换（固定浅色）；月亮按钮改为 💬，功能改为「新视频默认打开评论」开关（chrome.storage 记忆，硬加载与 SPA 切换都生效）。
 7. v3.2：不再隐藏 B站播放器下方的原生评论区——右栏照旧，中间栏底部恢复原生评论。
-8. v3.4：评论超链接——`lib.linkifyUrls` 纯函数把评论文本里的裸 http(s) URL 变成 `target=_blank` 链接（`rel=noopener noreferrer nofollow`）；URL 字符集限 ASCII 可打印（排除引号/尖括号/方括号，防属性注入），因此紧跟的中文标点自然截断；尾部 ASCII 标点（`.` `,` `)` 等）移出链接。新增 5 个单测。
+8. v3.4：评论超链接——`lib.linkifyUrls` 纯函数把评论文本里的裸 http(s) URL 变成 `target=_blank` 链接（`rel=noopener noreferrer nofollow`）；URL 字符集限 ASCII 可打印（排除引号/尖括号/方括号，防属性注入），因此紧跟的中文标点自然截断；尾部 ASCII 标点（`.` `,` `)` 等）移出链接。
+9. v3.4.1：修复“整条评论只有一个 URL / 只有一个时间戳”时不被链接化的边界 bug——新增 `mapTextRuns` 统一扫描文本段（含首尾无标签的裸文本），`linkifyUrls`/`linkifyTime`/`highlight` 三函数共用。新增 4 个单测（共 29 个）。
 
 ## 技术说明
 

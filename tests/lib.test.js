@@ -218,3 +218,27 @@ test('linkifyUrls leaves text without :// alone', () => {
   const html = '<p>plain 12:34 text</p>';
   assert.strictEqual(L.linkifyUrls(html), html);
 });
+
+/* ---------- bare/whole-string inputs (mapTextRuns edge) ---------- */
+
+test('linkifyUrls linkifies a comment that is ONLY a URL (b23.tv case)', () => {
+  const out = L.linkifyUrls('https://b23.tv/mall-XFTMs-2tGzn');
+  assert.ok(out.startsWith('<a class="bcs-link" href="https://b23.tv/mall-XFTMs-2tGzn"'));
+  assert.ok(out.endsWith('</a>'));
+});
+
+test('linkifyTime linkifies a whole-string timestamp (no surrounding tags)', () => {
+  const out = L.linkifyTime('12:34');
+  assert.strictEqual(out, '<span class="bcs-time" data-t="12:34">12:34</span>');
+});
+
+test('mapTextRuns edge: empty string and tag-only fragments survive', () => {
+  assert.strictEqual(L.linkifyUrls(''), '');
+  assert.strictEqual(L.linkifyUrls('<br>'), '<br>');
+  assert.strictEqual(L.linkifyTime('<br><br>'), '<br><br>');
+});
+
+test('highlight matches when keyword spans the whole string', () => {
+  const out = L.highlight('bili', 'bili');
+  assert.strictEqual(out, '<span class="bcs-hl">bili</span>');
+});

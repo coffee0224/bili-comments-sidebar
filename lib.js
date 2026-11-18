@@ -149,15 +149,24 @@ const BCSLib = (() => {
   /* ============================================================
      TIMESTAMP LINKIFY
      mm:ss or h:mm:ss inside comment text becomes a clickable span.
-     Only text BETWEEN tags is touched, so generated HTML is safe.
+     Only text runs are touched (mapTextRuns), never generated tags.
      ============================================================ */
+
+  /* Scan every text run of an HTML fragment, INCLUDING the leading and
+     trailing runs that have no surrounding tags (a comment whose whole
+     text is one URL or one timestamp). Wrapping in '>...<' lets those
+     edge runs match the tag-delimiter regex; wrapper is stripped after. */
+  function mapTextRuns(html, fn) {
+    return ('>' + html + '<')
+      .replace(/>([^<]+)</g, (_, t) => '>' + fn(t) + '<')
+      .slice(1, -1);
+  }
 
   const TIME_RE = /\b(\d{1,3}:[0-5]\d(?::[0-5]\d)?)\b/g;
 
   function linkifyTime(html) {
-    return html.replace(/>([^<]+)</g, (_, t) =>
-      '>' + t.replace(TIME_RE, '<span class="bcs-time" data-t="$1">$1</span>') + '<'
-    );
+    return mapTextRuns(html, t =>
+      t.replace(TIME_RE, '<span class="bcs-time" data-t="$1">$1</span>'));
   }
 
   function parseTimeSec(t) {
@@ -166,20 +175,19 @@ const BCSLib = (() => {
   }
 
   // Wrap `kw` occurrences in <span class="bcs-hl">; regex metachars
-  // in kw are escaped; only text between tags is touched
+  // in kw are escaped; only text runs are touched
   function highlight(html, kw) {
     if (!kw) return html;
     const r = new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return html.replace(/>([^<]+)</g, (_, t) => '>' + t.replace(r, '<span class="bcs-hl">$1</span>') + '<');
+    return mapTextRuns(html, t => t.replace(r, '<span class="bcs-hl">$1</span>'));
   }
 
   /* ============================================================
      URL LINKIFY
      Raw http(s) URLs in comment text become clickable anchors
-     (target=_blank, so B站's tab is left alone). Only text BETWEEN
-     tags is touched — same guard as linkifyTime/highlight — so tag
-     attributes (img src etc.) are never modified. Trailing ASCII +
-     中文 punctuation is kept OUT of the link.
+     (target=_blank, so B站's tab is left alone). Only text runs are
+     touched (mapTextRuns) — tag attributes (img src etc.) are never
+     modified. Trailing ASCII + 中文 punctuation is kept OUT of the link.
      Input is ALREADY HTML-escaped text: entities like &amp; inside
      a URL stay entities, which is valid in both href and display.
      ============================================================ */
@@ -193,14 +201,14 @@ const BCSLib = (() => {
   const URL_TAIL_RE = /[),.;:!?，。；：！？）】》」』"']+$/;
 
   function linkifyUrls(html) {
-    return html.replace(/>([^<]+)</g, (whole, t) => {
-      if (!t.includes('://')) return whole;
-      return '>' + t.replace(URL_RE, (m) => {
+    return mapTextRuns(html, (t) => {
+      if (!t.includes('://')) return t;
+      return t.replace(URL_RE, (m) => {
         const url = m.replace(URL_TAIL_RE, '');
         const tail = m.slice(url.length);
         const a = `<a class="bcs-link" href="${url}" target="_blank" rel="noopener noreferrer nofollow">${url}</a>`;
         return tail ? a + tail : a;
-      }) + '<';
+      });
     });
   }
 
