@@ -161,15 +161,23 @@
 }
 
 /* ---- tab switching (评论 / 简介) -------------------------------------
-   Exclusive tabs, render-then-collapse strategy (v2.0):
+   Exclusive tabs, boot + collapse strategy (v2.1):
    bilibili mounts right-column images (up-avatar, video covers) client-
-   side ONLY when the subtree is genuinely visible — display:none AND
-   visibility:hidden both prevent the mount forever (probe: 0 <img>).
-   So by default we do NOT hide the native content: it renders normally
-   below our comments (below the fold, invisible in practice). 5s after
-   load/SPA-nav JS adds .bcs-collapse, which collapses it — by then the
-   images have mounted. The 简介 tab lifts the collapse via the
+   side ONLY when the subtree is genuinely IN THE VIEWPORT at mount
+   time — display:none, visibility:hidden AND below-the-fold all
+   prevent the mount forever (probes: 0 <img> mounted). Our comment
+   list (75vh) pushes the native content below the fold, so v2.0's
+   "render un-hidden below the comments" still never mounted.
+   v2.1 boot: for the first ~1.5–6s after load/SPA-nav JS adds
+   .bcs-boot, which hides OUR comment blocks so the native content
+   sits at the top of the right column, in the viewport beside the
+   player — exactly like the stock page — and its images mount. Once
+   the sibling's images poll complete (or 6s cap), JS drops .bcs-boot
+   and adds .bcs-collapse. The 简介 tab lifts the collapse via the
    :not(.bcs-intro-mode) guard; switching back re-collapses. */
+#bili-comments-sidebar.bcs-boot .bcs-toolbar,
+#bili-comments-sidebar.bcs-boot .bcs-list,
+#bili-comments-sidebar.bcs-boot .bcs-footer { display: none; }
 #bili-comments-sidebar.bcs-collapse:not(.bcs-intro-mode) ~ * {
   height: 0 !important;
   min-height: 0 !important;

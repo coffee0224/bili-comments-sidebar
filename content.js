@@ -339,7 +339,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.0</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.1</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -455,16 +455,35 @@
     $('J-tab-c').onclick = () => setTab('comments');
     $('J-tab-i').onclick = () => setTab('intro');
 
-    // render-then-collapse: let the native right column render genuinely
-    // visible for 5s (below the fold — bilibili mounts its images only
-    // when truly visible; display:none/visibility:hidden prevent the
-    // mount entirely), then collapse it via .bcs-collapse. Re-armed on
+    // render-then-collapse, v2.1 "boot" strategy: bilibili mounts
+    // right-column images client-side only when they are GENUINELY in
+    // the viewport at mount time. Our comment list (75vh) pushes the
+    // native content below the fold → mount never fires → 简介 tab
+    // shows grey placeholders forever. So during a short boot window
+    // we hide OUR comment blocks instead: the native content then sits
+    // at the top of the right column, in the viewport beside the
+    // player (exactly like the stock page) and its images mount. We
+    // poll until the sibling's <img>s are complete (hard cap 6s), then
+    // drop the boot class and collapse the native column. Re-armed on
     // SPA navigation where the right column is rebuilt.
-    let collapseTimer = 0;
+    let bootPoll = 0;
     const scheduleCollapse = () => {
-      clearTimeout(collapseTimer);
+      clearInterval(bootPoll);
       sb.classList.remove('bcs-collapse'); // rebuild → render again first
-      collapseTimer = setTimeout(() => sb.classList.add('bcs-collapse'), 5000);
+      sb.classList.add('bcs-boot');        // hide ours → native in viewport
+      const t0 = Date.now();
+      bootPoll = setInterval(() => {
+        window.dispatchEvent(new Event('scroll')); // nudge scroll-driven mounts
+        const sib = sb.parentElement ? sb.nextElementSibling : null;
+        const imgs = sib ? [...sib.querySelectorAll('img')] : [];
+        const ready = imgs.length > 0 && imgs.every(i => i.complete);
+        const t = Date.now() - t0;
+        if ((ready && t >= 1500) || t >= 6000) {
+          clearInterval(bootPoll);
+          sb.classList.remove('bcs-boot');
+          sb.classList.add('bcs-collapse');
+        }
+      }, 250);
     };
     S.scheduleCollapse = scheduleCollapse;
     scheduleCollapse();
