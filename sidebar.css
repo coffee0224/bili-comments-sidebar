@@ -161,16 +161,16 @@
 }
 
 /* ---- tab switching (评论 / 简介) -------------------------------------
-   Comments tab (default, no class): collapse the native right-column
-   content to zero height instead of display:none. Bilibili mounts its
-   right-column images (up-avatar, video covers) behind v-if + visibility
-   detection — display:none'd subtrees never become "visible", so the
-   <img> components never mount at all (probe: 0 <img> in right column).
-   A collapsed-but-rendered subtree passes visibility checks: images
-   mount and load normally, and the 简介 tab just expands it.
-   visibility:hidden keeps it unpaintable/unclickable; height:0+overflow
-   keeps it out of layout. !important beats inline styles. */
-#bili-comments-sidebar:not(.bcs-intro-mode) ~ * {
+   Exclusive tabs, render-then-collapse strategy (v2.0):
+   bilibili mounts right-column images (up-avatar, video covers) client-
+   side ONLY when the subtree is genuinely visible — display:none AND
+   visibility:hidden both prevent the mount forever (probe: 0 <img>).
+   So by default we do NOT hide the native content: it renders normally
+   below our comments (below the fold, invisible in practice). 5s after
+   load/SPA-nav JS adds .bcs-collapse, which collapses it — by then the
+   images have mounted. The 简介 tab lifts the collapse via the
+   :not(.bcs-intro-mode) guard; switching back re-collapses. */
+#bili-comments-sidebar.bcs-collapse:not(.bcs-intro-mode) ~ * {
   height: 0 !important;
   min-height: 0 !important;
   overflow: hidden !important;

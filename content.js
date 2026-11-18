@@ -339,7 +339,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.9</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.0</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -454,6 +454,20 @@
     S.setTab = setTab;
     $('J-tab-c').onclick = () => setTab('comments');
     $('J-tab-i').onclick = () => setTab('intro');
+
+    // render-then-collapse: let the native right column render genuinely
+    // visible for 5s (below the fold — bilibili mounts its images only
+    // when truly visible; display:none/visibility:hidden prevent the
+    // mount entirely), then collapse it via .bcs-collapse. Re-armed on
+    // SPA navigation where the right column is rebuilt.
+    let collapseTimer = 0;
+    const scheduleCollapse = () => {
+      clearTimeout(collapseTimer);
+      sb.classList.remove('bcs-collapse'); // rebuild → render again first
+      collapseTimer = setTimeout(() => sb.classList.add('bcs-collapse'), 5000);
+    };
+    S.scheduleCollapse = scheduleCollapse;
+    scheduleCollapse();
 
     // jump: scroll list to top
     $('J-jump').onclick = () => {
@@ -837,6 +851,7 @@
         S.comments = []; S.page = 1;
         S.hasMore = true; S.expanded = {};
         if (S.setTab) S.setTab('comments'); // new video → reset to comments tab
+        if (S.scheduleCollapse) S.scheduleCollapse(); // rebuilt right column → render-then-collapse again
         setTimeout(() => { load(true); }, 800);
       }
     }).observe(document.body, { childList: true, subtree: true });
