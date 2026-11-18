@@ -372,7 +372,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.9</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.10</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -691,9 +691,20 @@
     // sb hangs at the end of <body>; touching body children would nuke
     // the whole page).
     if (!rc || !rc.classList.contains('right-container')) return;
-    [...rc.children].forEach(el => {
-      if (el !== sb) el.classList.toggle('bcs-native-hide', collapsed);
-    });
+    const kids = [...rc.children].filter(el => el !== sb);
+    if (collapsed) {
+      // Collapsing removes ~thousands of px of page height. If the user
+      // is scrolled past the post-collapse maximum, the browser CLAMPS
+      // window.scrollY — bilibili's nav header reads that clamp as a
+      // scroll-down and auto-hides (reported: 导航栏消失). Reset to top
+      // BEFORE collapsing so the clamp never fires.
+      const willHide = kids.filter(el => !el.classList.contains('bcs-native-hide'));
+      const remove = willHide.reduce((s, el) => s + el.getBoundingClientRect().height, 0);
+      const doc = document.documentElement;
+      const newMax = doc.scrollHeight - remove - window.innerHeight;
+      if (willHide.length && window.scrollY > newMax + 50) window.scrollTo(0, 0);
+    }
+    kids.forEach(el => el.classList.toggle('bcs-native-hide', collapsed));
   }
 
   function applyLayout() {
@@ -992,7 +1003,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.9 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
+  console.log('[BCS] v2.10 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
