@@ -1,25 +1,45 @@
+/* ============================================================
+   Bili Comments Sidebar — fork v3.0 (content script)
+
+   WHAT THIS DOES
+   - Adds a tabbed column over B站's native right column:
+     [简介] = B站原生右栏（相关视频等, 只是被推到标签行下方）
+     [评论] = 本扩展的评论区（时间戳可点击跳转）
+   - Hides B站's own comment section below the player.
+
+   ARCHITECTURE (hard-won constraints — read before touching)
+   1. Our root node #bili-comments-sidebar lives on <body> FOREVER.
+      ANY foreign node inside B站's #app subtree (.right-container
+      or .video-container-v1) during their mount window crashes the
+      bili-header fragment-anchor remount (site nav disappears) and
+      inserting into the rc first-child slot permanently breaks the
+      video-awesome-img lazy registry (grey thumbnails). Never move
+      the node into their DOM; positionSidebar() only READS rects
+      and writes our own inline style.
+   2. positionSidebar() emulates an in-flow column: left/width lock
+      to the native .right-container slot, top follows the slot rect
+      every frame (rAF-throttled scroll listener) so page scrolling
+      moves the panel exactly like in-flow content.
+   3. Tab switching is pure CSS on <html> classes — zero mutation
+      of B站 nodes. Comments mode: rc visibility:hidden (keeps its
+      411px slot, page geometry unchanged). Intro mode: our comment
+      machinery hidden, native rc content pushed down 52px below
+      the persistent tab bar.
+   4. The list is its own scroll container (overscroll-behavior:
+      contain) so wheel-scrolling comments never drags the page.
+
+   MODULES
+   lib.js (loaded first, same isolated world) holds all pure helpers
+   (BCSLib) and their unit tests (tests/, `node --test`).
+   ============================================================ */
 (() => {
   'use strict';
 
-  /* ============================================================
-     DIAGNOSTIC MODE  (temporary — bisects the grey-images bug)
-     localStorage.bcsMode on the bilibili origin gates features:
-       full     everything on (default, current behaviour)
-       off      script does NOTHING at all
-       nostyle  skip style injection + html.bcs-layout class
-       nomount  skip inserting into .right-container (sb stays at body end)
-       nofetch  skip our API fetches (comments show 加载中 forever)
-       norescue skip the window capture listeners
-     ============================================================ */
-  const BCS_MODE = (() => {
-    try { return localStorage.getItem('bcsMode') || 'full'; } catch (e) { return 'full'; }
-  })();
-  const MODE = {
-    style:  !['off', 'nostyle'].includes(BCS_MODE),
-    mount:  !['off', 'nomount'].includes(BCS_MODE),
-    fetch:  !['off', 'nofetch'].includes(BCS_MODE),
-    rescue: !['off', 'norescue'].includes(BCS_MODE),
-  };
+  const {
+    bvidFromPath, videoInfoFromHtml, buildTree, timeAgo, esc,
+    imgUrl, fmtMsg, fmtLike, linkifyTime, parseTimeSec, highlight,
+    applyEmotes, renderPictures,
+  } = BCSLib;
 
   /* ============================================================
      STATE
@@ -35,72 +55,37 @@
     hasMore: true,
     oid: null,
     upMid: null,
-    // rpid -> { replies:[], done:bool }
-    expanded: {},
-    theme: 'light',  // 'light' matches B站 native page; toggle to 'dark' via header button
-    tabMode: 'intro',    // 'comments' | 'intro' — default tab is 简介
+    expanded: {},       // rpid -> { replies:[], done:bool }
+    theme: 'light',     // 'light' matches B站 native page
+    tabMode: 'intro',   // default tab is 简介
+    // assigned later: sb (root node), position, setTab
   };
 
+  const $ = (id) => document.getElementById(id);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
   /* ============================================================
-     VIDEO INFO  (BV -> aid via API)
+     VIDEO INFO  (BV -> aid; DOM state first, view API fallback)
      ============================================================ */
   const _vcache = {};
   let _vErr = '';  // last view-API error, surfaced in UI messages
 
-  function bvidFromUrl() {
-    const m = location.pathname.match(/\/video\/(BV[\w]+)/);
-    return m ? m[1] : null;
-  }
+  const bvidFromUrl = () => bvidFromPath(location.pathname);
 
-  /* Extract video info from the page's inline __INITIAL_STATE__ script.
-     Content scripts live in an isolated world and cannot read
-     window.__INITIAL_STATE__, but the inline <script> TAG is shared DOM —
-     its textContent carries the same JSON. This survives view-API
-     risk control (-404/-352/-403) and works on every hard page load.
-     (On SPA navigation document.scripts still belongs to the first page,
-     so callers fall back to the API path then.) */
-  function videoInfoFromDom(bvid) {
-    try {
-      const anchor = new RegExp('"aid"\\s*:\\s*(\\d+)\\s*,\\s*"bvid"\\s*:\\s*"' + bvid + '"');
-      let aid = '', seg = '';
-      for (const sc of document.scripts) {
-        const t = sc.textContent || '';
-        const m = t.match(anchor);
-        if (m) { aid = m[1]; seg = t.slice(t.indexOf(m[0]), t.indexOf(m[0]) + 16000); break; }
-      }
-      if (!aid) return null;
-
-      const grab = (re) => { const m = seg.match(re); return m ? m[1] : ''; };
-      const jstr = (raw) => { try { return JSON.parse('"' + raw + '"'); } catch (e) { return raw; } };
-      const title = jstr(grab(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-      const desc = jstr(grab(/"desc"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-      const pubdate = parseInt(grab(/"pubdate"\s*:\s*(\d+)/), 10) || 0;
-      const oMid = grab(/"owner"\s*:\s*\{\s*"mid"\s*:\s*(\d+)/);
-      const oName = jstr(grab(/"owner"\s*:\s*\{\s*"mid"\s*:\s*\d+\s*,\s*"name"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-      const oFace = jstr(grab(/"owner"\s*:\s*\{\s*"mid"\s*:\s*\d+\s*,\s*"name"\s*:\s*"(?:[^"\\]|\\.)*"\s*,\s*"face"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-      const statIdx = seg.search(/"stat"\s*:\s*\{/);
-      const statSeg = statIdx >= 0 ? seg.slice(statIdx, statIdx + 700) : '';
-      const num = (k) => parseInt((statSeg.match(new RegExp('"' + k + '"\\s*:\\s*(\\d+)')) || [0, 0])[1], 10) || 0;
-      const stat = { view: num('view'), danmaku: num('danmaku'), reply: num('reply'), like: num('like'), coin: num('coin'), favorite: num('favorite'), share: num('share') };
-
-      return {
-        aid,
-        upMid: oMid || null,
-        title: title || document.title.replace(/_哔哩哔哩_bilibili.*$/, ''),
-        desc,
-        pubdate,
-        owner: oMid ? { mid: oMid, name: oName, face: oFace } : null,
-        stat,
-      };
-    } catch (e) { return null; }
+  function scriptsText() {
+    let out = '';
+    for (const sc of document.scripts) out += (sc.textContent || '') + '\n';
+    return out;
   }
 
   async function getVideoInfo(bvid) {
     if (_vcache[bvid]) return _vcache[bvid];
     _vErr = '';
 
-    // 1) DOM state first: free, instant, immune to API risk control
-    const dom = videoInfoFromDom(bvid);
+    // 1) Inline __INITIAL_STATE__ first: free, instant, immune to
+    //    API risk control (hard loads only — see lib.js docstring)
+    const dom = videoInfoFromHtml(scriptsText(), bvid,
+      document.title.replace(/_哔哩哔哩_bilibili.*$/, ''));
     if (dom && dom.aid) { _vcache[bvid] = dom; return dom; }
 
     // 2) API fallback (only source of truth on SPA navigation)
@@ -142,7 +127,7 @@
      BILIBILI COMMENT API
      ============================================================ */
 
-  // Fetch one page of root comments
+  // One page of root comments
   async function apiRootComments(oid, page, sort) {
     const u = `https://api.bilibili.com/x/v2/reply?type=1&oid=${oid}&pn=${page}&sort=${sort}&nohot=0`;
     const r = await fetch(u, { credentials: 'include' });
@@ -151,7 +136,7 @@
     return j.data;
   }
 
-  // Fetch ALL replies under a root comment (auto-paginate)
+  // ALL replies under a root comment (auto-paginate, cap 1000)
   async function apiAllReplies(oid, rootRpid) {
     const all = [];
     let pn = 1;
@@ -172,102 +157,14 @@
       const total = j.data?.page?.count ?? 0;
       if (all.length >= total) break;
       pn++;
-      if (pn > 50) break; // safety cap 1000 replies
+      if (pn > 50) break; // safety cap
     }
     return all;
   }
 
   /* ============================================================
-     TREE BUILDER
-     Bilibili reply system is max 2 levels, but each reply has
-     `root` (the root comment rpid) and `parent` (the rpid it
-     replies to).  We build a nested tree from the flat list.
+     VIDEO SEEK  (timestamp click)
      ============================================================ */
-
-  function buildTree(flatReplies, rootRpid, sortMode) {
-    if (!flatReplies || flatReplies.length === 0) return [];
-
-    const sorted = [...flatReplies];
-    if (sortMode === 'hot') {
-      sorted.sort((a, b) => (b.like || 0) - (a.like || 0));
-    } else {
-      sorted.sort((a, b) => (a.ctime || 0) - (b.ctime || 0));
-    }
-
-    // Build map
-    const map = new Map();
-    for (const r of sorted) {
-      map.set(String(r.rpid), { ...r, _children: [] });
-    }
-
-    const roots = [];
-    for (const r of sorted) {
-      const node = map.get(String(r.rpid));
-      const pid = String(r.parent);
-      if (pid === String(rootRpid) || !map.has(pid)) {
-        // Top-level reply to root
-        roots.push(node);
-      } else {
-        map.get(pid)._children.push(node);
-      }
-    }
-    return roots;
-  }
-
-  /* ============================================================
-     HELPERS
-     ============================================================ */
-
-  function timeAgo(ts) {
-    const d = Date.now() / 1000 - ts;
-    if (d < 60) return '刚刚';
-    if (d < 3600) return (d / 60 | 0) + '分钟前';
-    if (d < 86400) return (d / 3600 | 0) + '小时前';
-    if (d < 2592000) return (d / 86400 | 0) + '天前';
-    const o = new Date(ts * 1000);
-    return `${o.getFullYear()}-${String(o.getMonth() + 1).padStart(2, '0')}-${String(o.getDate()).padStart(2, '0')}`;
-  }
-
-  const _e = document.createElement('div');
-  function esc(t) { _e.textContent = t; return _e.innerHTML; }
-
-  // ---- Image URL optimization ----
-  // Bilibili CDN supports @Nw.webp suffix for fast resized images
-  // and sometimes blocks hotlinking without proper referrer handling
-  function imgUrl(url, suffix) {
-    if (!url) return '';
-    // Ensure https
-    url = url.replace(/^http:\/\//, 'https://');
-    // Remove existing @ suffix if any
-    if (suffix) {
-      url = url.replace(/@[^/]+$/, '');
-      url += suffix;
-    }
-    return url;
-  }
-
-  function fmtMsg(msg) {
-    if (!msg) return '';
-    return esc(msg).replace(/\n/g, '<br>');
-  }
-
-  /* ============================================================
-     TIMESTAMP LINKIFY + VIDEO SEEK
-     ============================================================ */
-  const TIME_RE = /\b(\d{1,3}:[0-5]\d(?::[0-5]\d)?)\b/g;
-
-  function linkifyTime(html) {
-    // Only touch text nodes (between tags) so we never break HTML
-    return html.replace(/>([^<]+)</g, (_, t) =>
-      '>' + t.replace(TIME_RE, '<span class="bcs-time" data-t="$1">$1</span>') + '<'
-    );
-  }
-
-  function parseTimeSec(t) {
-    const p = t.split(':').map(Number);
-    return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
-  }
-
   function seekVideo(sec) {
     try {
       if (window.player && typeof window.player.seek === 'function') {
@@ -282,45 +179,8 @@
     }
   }
 
-  function applyEmotes(html, emote) {
-    if (!emote) return html;
-    for (const [k, v] of Object.entries(emote)) {
-      const ek = esc(k);
-      const src = imgUrl(v.url, '@100w.webp');
-      html = html.replaceAll(ek,
-        `<img class="bcs-emote" src="${src}" alt="${ek}" title="${ek}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${imgUrl(v.url)}'"/>`
-      );
-    }
-    return html;
-  }
-
-  // Render user-uploaded pictures in comments (content.pictures)
-  function renderPictures(pictures) {
-    if (!pictures || pictures.length === 0) return '';
-    const imgs = pictures.map(p => {
-      const src = imgUrl(p.img_src, '@360w.webp');
-      const full = imgUrl(p.img_src);
-      return `<a class="bcs-pic-link" href="${full}" target="_blank" title="点击查看大图">` +
-        `<img class="bcs-pic" src="${src}" loading="lazy" referrerpolicy="no-referrer" ` +
-        `onerror="this.onerror=null;this.src='${imgUrl(p.img_src)}'"/>` +
-        `</a>`;
-    }).join('');
-    return `<div class="bcs-pics">${imgs}</div>`;
-  }
-
-  function highlight(html, kw) {
-    if (!kw) return html;
-    const r = new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
-    return html.replace(/>([^<]+)</g, (_, t) => '>' + t.replace(r, '<span class="bcs-hl">$1</span>') + '<');
-  }
-
-  function fmtLike(n) { return n > 10000 ? (n / 10000).toFixed(1) + '万' : String(n); }
-
-  const LIKE_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>`;
-  const REPLY_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>`;
-
   /* ============================================================
-     CREATE SIDEBAR DOM
+     SIDEBAR DOM + EVENTS
      ============================================================ */
 
   function createUI() {
@@ -361,18 +221,14 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.15</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.0.0</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
-    // Attach to document — and it STAYS on <body> forever (v2.13):
-    // any node inside B站's #app subtree (.video-container-v1 AND
-    // .right-container alike) during their mount window crashes the
-    // bili-header fragment-anchor remount. positionSidebar() below only
-    // READS rects and sets our own inline style; it never moves this node.
+    // Attach to <body> — and it STAYS there forever (see architecture
+    // note at the top: entering B站's #app subtree crashes their
+    // bili-header remount and lazy-image registry).
     document.body.appendChild(sb);
-    // v2.15: no floating switch-back pill — the tab bar (简介/评论)
-    // stays docked at the top of the column in BOTH modes (v2.11 look).
     S.sb = sb; // survive B站 rebuilds: re-find via reference, not just ID
 
     // ---- events ----
@@ -382,7 +238,7 @@
       if (t && t.dataset.t) seekVideo(parseTimeSec(t.dataset.t));
     });
 
-    // theme toggle
+    // theme toggle (persisted via chrome.storage.local)
     $('J-theme').onclick = () => {
       S.theme = S.theme === 'dark' ? 'light' : 'dark';
       applyTheme();
@@ -394,16 +250,14 @@
       const icon = $('J-theme-icon');
       if (S.theme === 'light') {
         sb.classList.add('light');
-        // Moon icon for "switch to dark"
-        icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>';
+        icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>'; // moon
       } else {
         sb.classList.remove('light');
-        // Sun icon for "switch to light"
-        icon.innerHTML = '<path d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"/>';
+        icon.innerHTML = '<path d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"/>'; // sun
       }
     }
 
-    // Load saved theme
+    // apply saved theme (default light)
     applyTheme();
     try {
       chrome.storage.local.get('_bcsTheme', (r) => {
@@ -432,7 +286,7 @@
       refreshAllExpanded();
     });
 
-    // search
+    // search (debounced)
     let _ft;
     $('J-search').oninput = e => {
       clearTimeout(_ft);
@@ -442,18 +296,8 @@
     // refresh
     $('J-refresh').onclick = () => { S.expanded = {}; load(true); };
 
-    // ---- tabs: 评论 / 简介(B站右栏原内容) ------------------------------
-    // v2.12 architecture: the sidebar is a SIBLING column of B站's
-    // .right-container (inside .video-container-v1), never a child of
-    // it. Switching is therefore pure CSS on the <html> element:
-    //   comments mode → html.bcs-layout (no intro class):
-    //     .right-container display:none, our column + tabs visible
-    //   intro mode → html.bcs-intro-page added:
-    //     our column display:none, native column fully restored
-    // No DOM mutation of B站's nodes at any point (that class-toggling
-    // plus our node inside their column was the bili-header remount
-    // crash path). The persistent tab bar (visible in intro mode too,
-    // v2.15) is the switch-back control.
+    // ---- tabs: 简介 (B站原生右栏) / 评论 ------------------------------
+    // Pure CSS switching via <html> classes — see architecture note 3.
     const setTab = mode => {
       S.tabMode = mode;
       const intro = mode === 'intro';
@@ -474,81 +318,19 @@
       if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // infinite scroll: the list is its own scroll container; observe the
-    // sentinel against that container so pages load near its bottom
+    // infinite scroll: the list is its own scroll container; observe
+    // the sentinel against that container so pages load near bottom
     const scroller = sb.querySelector('#J-scroll');
     new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && !S.loading && S.hasMore) load(false);
     }, { root: scroller, rootMargin: '600px 0px' }).observe(sb.querySelector('#J-sentinel'));
-
-    // ---- event rescue v2 ----------------------------------------------
-    // (gated by MODE.rescue for the grey-images bisect)
-    const INTERACTIVE = '.bcs-pill,.bcs-more-btn,.bcs-time,.bcs-jump,.bcs-theme-btn,' +
-                        '.bcs-icon-btn,.bcs-footer-btn,.bcs-load-btn,.bcs-collapse,' +
-                        'button,a,input';
-    if (MODE.rescue) {
-    // hit-test that works even when pointer-events:none makes elementsFromPoint
-    // skip our subtree: geometric rect containment over our interactive nodes.
-    const hitMine = (s, x, y) => {
-      const byStack = document.elementsFromPoint(x, y)
-        .find(el => s.contains(el) && el.closest(INTERACTIVE));
-      if (byStack) return byStack;
-      for (const el of s.querySelectorAll(INTERACTIVE)) {
-        const r = el.getBoundingClientRect();
-        if (r.width && r.height && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)
-          return el;
-      }
-      return null;
-    };
-    window.addEventListener('click', e => {
-      const s = $('bili-comments-sidebar');
-      if (!s || s.contains(e.target)) return;
-      const r = s.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right ||
-          e.clientY < r.top || e.clientY > r.bottom) return;
-      const mine = hitMine(s, e.clientX, e.clientY);
-      if (mine) { e.preventDefault(); e.stopPropagation(); mine.click(); }
-    }, true);
-    window.addEventListener('pointerdown', e => {
-      // overlays can eat focus before click: focus our input directly
-      const s = $('bili-comments-sidebar');
-      if (!s || s.contains(e.target)) return;
-      const r = s.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right ||
-          e.clientY < r.top || e.clientY > r.bottom) return;
-      const mine = hitMine(s, e.clientX, e.clientY);
-      if (mine && mine.tagName === 'INPUT') { e.preventDefault(); mine.focus(); }
-    }, true);
-    window.addEventListener('wheel', e => {
-      const s = $('bili-comments-sidebar');
-      if (!s || s.contains(e.target)) return;
-      const sc = $('J-scroll');
-      if (!sc) return;
-      const r = sc.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right ||
-          e.clientY < r.top || e.clientY > r.bottom) return;
-      const atTop = sc.scrollTop <= 0 && e.deltaY < 0;
-      const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1 && e.deltaY > 0;
-      if (atTop || atBottom) return; // let overscroll chain to the page
-      e.preventDefault(); e.stopPropagation();
-      sc.scrollTop += e.deltaY;
-    }, { capture: true, passive: false });
-    } // MODE.rescue
   }
 
-  function $(id) { return document.getElementById(id); }
-  function $$(sel) { return document.querySelectorAll(sel); }
+  /* ============================================================
+     PAGE LAYOUT
+     ============================================================ */
 
-  /* ============================================================
-     (intro section removed v1.5 — comments-only sidebar)
-     ============================================================ */
-  /* ============================================================
-     PAGE LAYOUT: comments become the first block of B站's
-     native right column (.right-container), fully in-flow.
-     Left column keeps video + title + actions as-is; only the
-     original (duplicate) comment section below the player is
-     hidden.
-     ============================================================ */
+  // Hide B站's own comment section below the player (the duplicate)
   function injectLayoutStyle() {
     if (document.getElementById('bcs-layout-style')) return;
     const st = document.createElement('style');
@@ -564,22 +346,15 @@
     document.documentElement.appendChild(st);
   }
 
-  // Mount (or re-mount after SPA rebuilds) only AFTER the native right
-  // column has its first cards — inserting anything into the layout
-  // area mid-mount is what breaks bilibili's video-awesome-img lazy
-  // registry and the bili-header remount. Waiting for the settled
-  // signal keeps us clear of that window.
+  // The native right column has its first cards — B站's mount window
+  // is over; reading rects / docking now is safe.
   function rightSettled(rc) {
     return !!(rc.querySelector('.video-page-card-small') ||
               rc.querySelector('.up-panel-container') ||
               rc.querySelector('.video-pod'));
   }
+
   function positionSidebar() {
-    // v2.14: body-mounted panel that EMULATES the in-flow v2.11 look:
-    // left/width lock to the native rc slot, and the TOP follows the
-    // slot rect every frame (rAF-throttled scroll listener), so page
-    // scrolling moves the panel exactly like an in-flow column did.
-    // Never enters #app — that is what crashed bili-header.
     const sb = document.getElementById('bili-comments-sidebar') || S.sb;
     const rc = document.querySelector('.right-container');
     if (!sb || !rc || !rightSettled(rc)) return false;
@@ -600,7 +375,7 @@
     sb.style.left = left + 'px';
     sb.style.top = top + 'px';
     sb.style.width = w + 'px';
-    sb.style.height = ''; // auto — v2.11 look
+    sb.style.height = ''; // auto
     return true;
   }
   S.position = positionSidebar;
@@ -608,8 +383,8 @@
   let driftTimer = null, scrollHooked = false;
   function startDriftWatch() {
     if (driftTimer) return;
-    // page scroll moves the slot -> move the panel with it (in-flow feel);
-    // runs in BOTH modes now — the tab bar is visible in intro mode too
+    // page scroll moves the slot -> move the panel with it (in-flow
+    // feel); runs in BOTH modes — the tab bar is visible in intro too
     if (!scrollHooked) {
       scrollHooked = true;
       let ticking = false;
@@ -625,11 +400,8 @@
   }
 
   function applyLayout() {
-    if (MODE.style) {
-      injectLayoutStyle();
-      document.documentElement.classList.add('bcs-layout');
-    }
-    if (!MODE.mount) return;
+    injectLayoutStyle();
+    document.documentElement.classList.add('bcs-layout');
     startDriftWatch();
     if (!positionSidebar()) {
       // video area not rendered yet — retry until it appears
@@ -644,11 +416,6 @@
      LOAD ROOT COMMENTS
      ============================================================ */
   async function load(reset) {
-    if (!MODE.fetch) { // diagnostic: our API calls suspended
-      const l = $('J-list');
-      if (l) l.innerHTML = '<div class="bcs-state">诊断模式 nofetch：评论请求已禁用</div>';
-      return;
-    }
     if (S.loading) return;
     const list = $('J-list');
     const rb = $('J-refresh');
@@ -674,6 +441,7 @@
       if (items.length === 0) { S.hasMore = false; }
       else {
         if (S.page === 1 && data.top_replies && data.top_replies.length) {
+          // merge置顶 first, dedup against the normal page-1 items
           const topIds = new Set(data.top_replies.map(r => String(r.rpid)));
           const deduped = items.filter(r => !topIds.has(String(r.rpid)));
           S.comments = [...data.top_replies.map(r => ({ ...r, _top: true })), ...deduped];
@@ -746,7 +514,6 @@
 
         expWrap.appendChild(mkRepliesWrap(tree, 1));
 
-        // Sticky collapse button pinned at bottom
         const stickyBar = document.createElement('div');
         stickyBar.className = 'bcs-sticky-collapse';
         const collapseBtn = mkBtn(`▴ 收起 ${rcount} 条回复`, () => {
@@ -759,7 +526,7 @@
         root.appendChild(expWrap);
       }
     } else if (rcount > 0) {
-      // ---- collapsed: no preview, just the expand button ----
+      // ---- collapsed: expand button ----
       const btn = mkBtn(`▾ 展开全部 ${rcount} 条回复`, async function handler() {
         btn.classList.add('busy');
         btn.textContent = '加载中…';
@@ -798,7 +565,6 @@
 
     for (const node of treeNodes) {
       inner.appendChild(mkCard(node, false));
-      // Recurse children
       if (node._children && node._children.length > 0) {
         inner.appendChild(mkRepliesWrap(node._children, depth + 1));
       }
@@ -811,6 +577,9 @@
   /* ============================================================
      BUILD DOM — SINGLE COMMENT CARD
      ============================================================ */
+  const LIKE_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>`;
+  const REPLY_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>`;
+
   function mkCard(c, isRoot) {
     const m = c.member || {};
     const ct = c.content || {};
@@ -823,7 +592,6 @@
     body = applyEmotes(body, ct.emote);
     body = linkifyTime(body);
     if (S.filter) body = highlight(body, S.filter);
-    // Append user-uploaded pictures
     body += renderPictures(ct.pictures);
 
     const card = document.createElement('div');
@@ -863,9 +631,6 @@
     return card;
   }
 
-  /* ============================================================
-     UTILITY: BUTTON
-     ============================================================ */
   function mkBtn(text, handler) {
     const btn = document.createElement('button');
     btn.className = 'bcs-more-btn';
@@ -874,9 +639,7 @@
     return btn;
   }
 
-  /* ============================================================
-     RE-RENDER A SINGLE ROOT THREAD (after expand/collapse/sort)
-     ============================================================ */
+  // Re-render one root thread after expand/collapse/sort change
   function rerenderRoot(rpid) {
     const old = document.querySelector(`.bcs-root[data-rpid="${rpid}"]`);
     if (!old) return;
@@ -892,13 +655,13 @@
   }
 
   /* ============================================================
-     SPA NAVIGATION
+     SPA NAVIGATION  (B站 swaps videos without reloading)
      ============================================================ */
   function watchUrl() {
     let last = location.href;
     new MutationObserver(() => {
       // Re-dock if B站 rebuilt the right column (rect changed)
-      if (MODE.mount) positionSidebar();
+      positionSidebar();
       if (location.href !== last) {
         last = location.href;
         S.oid = null; S.upMid = null;
@@ -920,14 +683,10 @@
     load(true);
   }
 
-  console.log('[BCS] v2.15 mode=' + BCS_MODE +
-    ' style:' + MODE.style + ' mount:' + MODE.mount +
-    ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
-  if (BCS_MODE !== 'off') {
-    if (document.readyState === 'loading')
-      document.addEventListener('DOMContentLoaded', init);
-    else
-      init();
-  }
+  console.log('[BCS] v3.0.0 ready');
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', init);
+  else
+    init();
 
 })();

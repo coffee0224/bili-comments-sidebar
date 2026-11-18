@@ -84,29 +84,24 @@
   --lv-pink-bg:   rgba(232,69,119,0.08);
 }
 
-/* ---- Layout: FIXED PANEL ON <body> (v2.13) ----------------------
-   Empirical rule (bisect + E1-E4 + repro): ANY foreign node inside
-   B站's #app subtree — .right-container OR its parent
-   .video-container-v1 — inserted during their mount/rebuild window
-   crashes the bili-header fragment-anchor remount (nextSibling of
-   null → empty #biliMainHeader → site nav gone). The store-original
-   extension kept its whole panel on <body> and never hit it.
-   Therefore:
-     - #bili-comments-sidebar lives on <body>, position:fixed, its box
-       computed in JS from the native .right-container rect
-     - comments mode → native column hidden with visibility:hidden
-       (NOT display:none): it keeps occupying its 411px slot, so the
-       flex row / video width / page geometry stay byte-identical, and
-       our fixed panel docks exactly on top of the freed slot
-     - intro mode → only the comment machinery hides; the tab bar
-       (简介/评论) stays docked at the top of the column (v2.15) */
+/* ---- LAYOUT MODES (v3.0) ----------------------------------------
+   The panel lives on <body>, position:fixed; its box is computed in
+   JS from the native .right-container rect (see content.js
+   positionSidebar). Hard constraint: our node must NEVER enter
+   B站's #app subtree — doing so during their mount window crashes
+   the bili-header remount (site nav disappears) and breaks the
+   lazy-image registry.
+
+   Two mutually exclusive modes, switched purely via <html> classes:
+     comments (html.bcs-layout, no intro class)
+       → native column visibility:hidden (keeps its 411px slot, page
+         geometry unchanged); our full panel docks on the freed slot
+     intro (html.bcs-intro-page added)
+       → our comment machinery hidden; only the tab bar stays docked
+         at the column top; native content pushed down 52px below it */
 html.bcs-layout:not(.bcs-intro-page) .right-container {
   visibility: hidden !important;
 }
-/* v2.15: the tab bar (简介/评论) stays at the top of the column in BOTH
-   modes — v2.11 behaviour. Intro mode hides only the comment machinery;
-   the native content is pushed down by exactly the tab-bar height so our
-   fixed header slots in above it (pure CSS margin, zero DOM mutation). */
 html.bcs-intro-page #bili-comments-sidebar .bcs-toolbar,
 html.bcs-intro-page #bili-comments-sidebar .bcs-list,
 html.bcs-intro-page #bili-comments-sidebar .bcs-footer {
@@ -120,21 +115,18 @@ html.bcs-intro-page .right-container-inner {
 }
 
 /* ============================================================
-   SHELL - body-mounted panel emulating the in-flow v2.11 look
-   (v2.14). The node never enters #app (that crashes bili-header),
-   but its box tracks the native .right-container slot every frame:
-   top follows the slot exactly (page scroll moves the panel like an
-   in-flow block), left/width follow on resize/SPA/theater drift.
-   No border/shadow/radius - it must read as part of the page, not a
-   floating card.
+   SHELL — body-mounted panel emulating an in-flow column.
+   Its box tracks the native .right-container slot every frame:
+   top follows the slot exactly (page scroll moves the panel like
+   an in-flow block), left/width follow on resize/SPA/theater
+   drift. No border/shadow/radius — it must read as part of the
+   page, not a floating card.
    ============================================================ */
 #bili-comments-sidebar {
   position: fixed;
   z-index: 1000;
-  /* pointer-events: some page states set pointer-events:none on an ancestor.
-     Inherited none makes our whole subtree un-hit-testable: real clicks pass
-     through and elementsFromPoint() skips our nodes. Re-enabling here
-     restores hit-testing AND lets the event-rescue see our elements. */
+  /* pointer-events: some page states set pointer-events:none on an
+     ancestor; re-enabling it here keeps our subtree hit-testable. */
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -191,8 +183,6 @@ html.bcs-intro-page .right-container-inner {
   padding: 2px 8px; border-radius: 10px;
 }
 
-/* (v2.15: the old #bcs-fab switch-back pill is gone — the persistent
-   tab bar in the column header replaces it in intro mode.) */
 .bcs-header-actions {
   display: flex;
   align-items: center;

@@ -1,45 +1,25 @@
-﻿{
-    "action":  {
-                   "default_icon":  {
-                                        "16":  "icons/icon16.png",
-                                        "48":  "icons/icon48.png"
-                                    },
-                   "default_title":  "切换评论侧栏"
-               },
-    "background":  {
-                       "service_worker":  "background.js"
-                   },
-    "content_scripts":  [
-                            {
-                                "css":  [
-                                            "sidebar.css"
-                                        ],
-                                "js":  [
-                                           "content.js"
-                                       ],
-                                "matches":  [
-                                                "https://www.bilibili.com/video/*"
-                                            ],
-                                "run_at":  "document_idle"
-                            }
-                        ],
-    "description":  "左视频+右栏(简介/评论/相关视频)布局,评论时间可点击跳转",
-    "host_permissions":  [
-                             "https://api.bilibili.com/*",
-                             "https://www.bilibili.com/*"
-                         ],
-    "icons":  {
-                  "128":  "icons/icon128.png",
-                  "16":  "icons/icon16.png",
-                  "48":  "icons/icon48.png"
-              },
-    "key":  "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm0ZN3lKKQVePFMlyxYG09kGK0eULQ5ecXIbneZAbvhYLciITtYU6wDBNI61s9SJQx9DyNCF7O9oRsGZFhB9eG7IwsOaQ2mun+rnNSyzNHZRVe+JKPR+m9HF8EzKZnzktd62so/B+qs7zlU4NjIaVz1GJK97utPvqpIB7KjBxflev9QbRJiLQHbwi+QjKA6snytoMHj4odQGcAUvi60OMF0+Dptq2TtZ3tklUzBvfaieSb/joOqkIwR9KQrqIfGWnlzxDDTfMVpDGTqw5X7vAcZc9AKqynMKMLLuKoT4N7ua19HXfl2ZtSs6IGV/sHAJgHg/HQM3GjkTO5PxWIu7irwIDAQAB",
-    "manifest_version":  3,
-    "name":  "Bili Comments Sidebar",
-    "permissions":  [
-                        "storage",
-                        "activeTab"
-                    ],
-    "update_url":  "https://clients2.google.com/service/update2/crx",
-    "version":  "1.3.0"
+{
+  "manifest_version": 3,
+  "name": "Bili Comments Sidebar",
+  "version": "3.0.0",
+  "description": "左视频+右栏(简介/评论/相关视频)布局,评论时间可点击跳转",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.bilibili.com/video/*"],
+      "js": ["lib.js", "content.js"],
+      "css": ["sidebar.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": [
+    "https://api.bilibili.com/*",
+    "https://www.bilibili.com/*"
+  ],
+  "permissions": ["storage"],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm0ZN3lKKQVePFMlyxYG09gGK0eULQ5ecXIbneZAbvhYLciITtYU6wDBNI61s9dSJQx9DyNCF7O9oRsGZFhB9eG7IwsOaQ2mun+rnNSyzNHZRVe+JKPR+m9HF8E9kZInzktd62co/B+qs7zlU4NjIaVz1GJK97utvqpIB7KjBxflev9QJh+QlLQHbwiQjKA6snytoMHj4odQGcAUvi60OMf9u+Dptq2TtZ3tkXvBvfaie9bS/joBbQ/n7WkIjR9KQrqIfGWnlzxBDTfMVpDGTqw5vAcQc9AKqynMKMLLuKoT4n7ua19dHXfl2ZtSs6IGV/sHAJgHg/HQM3GjkTO5PxWIu7irwIDAQAB"
 }
