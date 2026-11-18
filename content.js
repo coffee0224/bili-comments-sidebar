@@ -14,12 +14,15 @@
   const BCS_MODE = (() => {
     try { return localStorage.getItem('bcsMode') || 'full'; } catch (e) { return 'full'; }
   })();
-  // boot pacing: 'fast' (default, v2.7) ends the boot window as soon as
-  // we're mounted — setTab('简介')'s wake() promotes data-src/eager and
-  // dispatches scroll so bilibili's lazy loader recovers on un-collapse.
-  // 'safe' restores the old "wait until native imgs complete" pacing.
+  // boot pacing: 'fold' (default, v2.8) waits only for imgs intersecting
+  // the viewport (below-fold covers are lazy and never complete — waiting
+  // for all of them burned the full 6s cap every time). 'fast' ends boot
+  // on the first tick; 'safe' restores the old all-imgs pacing.
   const BCS_BOOT = (() => {
-    try { return localStorage.getItem('bcsBoot') === 'safe' ? 'safe' : 'fast'; } catch (e) { return 'fast'; }
+    try {
+      const v = localStorage.getItem('bcsBoot');
+      return ['fast', 'safe', 'fold'].includes(v) ? v : 'fold';
+    } catch (e) { return 'fold'; }
   })();
   const MODE = {
     style:  !['off', 'nostyle'].includes(BCS_MODE),
@@ -368,7 +371,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.7</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.8</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -514,15 +517,25 @@
         if (!mounted) { t0 = Date.now(); return; }
         window.dispatchEvent(new Event('scroll')); // nudge scroll-driven mounts
         const imgs = [...rc.querySelectorAll('img')];
-        const ready = imgs.length > 0 && imgs.every(i => i.complete);
         const t = Date.now() - t0;
-        // fast: natives are settled (rightSettled gated the mount) and we
-        // appended LAST, so the registry formed unimpeded — remaining lazy
-        // loads recover via setTab('简介')'s wake(). Finish on first tick.
-        // safe: old pacing — wait for every img complete (floor 1.5s).
+        // fold: only imgs intersecting the viewport (200px grace) count;
+        // collapsed/hidden ones (height 0) are excluded automatically.
+        // fast: finish on first tick. safe: every img, floor 1.5s.
+        let ready;
+        if (BCS_BOOT === 'safe') {
+          ready = imgs.length > 0 && imgs.every(i => i.complete);
+        } else {
+          const fold = imgs.filter(im => {
+            const r = im.getBoundingClientRect();
+            return r.height > 0 && r.top < innerHeight + 200 && r.bottom > 0;
+          });
+          ready = fold.length > 0 && fold.every(i => i.complete);
+        }
         const done = BCS_BOOT === 'fast'
           ? t >= 250
-          : (ready && t >= 1500) || t >= 6000 || Date.now() - abs0 > 10000;
+          : BCS_BOOT === 'fold'
+            ? (ready && t >= 500) || t >= 3000 || Date.now() - abs0 > 10000
+            : (ready && t >= 1500) || t >= 6000 || Date.now() - abs0 > 10000;
         if (done) {
           clearInterval(bootPoll);
           S.bootDone = true;
@@ -978,7 +991,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.7 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
+  console.log('[BCS] v2.8 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
