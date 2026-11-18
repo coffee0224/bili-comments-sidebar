@@ -306,7 +306,6 @@
     const sb = document.createElement('div');
     sb.id = 'bili-comments-sidebar';
     sb.innerHTML = `
-      <div class="bcs-intro" id="J-intro"><div class="bcs-intro-loading">加载简介…</div></div>
       <div class="bcs-header">
         <div class="bcs-header-row">
           <div class="bcs-title">
@@ -337,7 +336,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.4</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.5</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -413,12 +412,10 @@
     // refresh
     $('J-refresh').onclick = () => { S.expanded = {}; load(true); };
 
-    // jump: scroll list to top + bring intro into view
+    // jump: scroll list to top
     $('J-jump').onclick = () => {
       const sc = $('J-scroll');
       if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' });
-      const h = sb.querySelector('.bcs-intro');
-      if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     // infinite scroll: the list is its own scroll container; observe the
@@ -491,55 +488,8 @@
   function $$(sel) { return document.querySelectorAll(sel); }
 
   /* ============================================================
-     INTRO SECTION (title / up / stats / tags / desc)
+     (intro section removed v1.5 — comments-only sidebar)
      ============================================================ */
-  async function renderIntro() {
-    const box = $('J-intro');
-    if (!box) return;
-    const bv = bvidFromUrl();
-    if (!bv) { box.innerHTML = ''; return; }
-    box.innerHTML = '<div class="bcs-intro-loading">加载简介…</div>';
-    try {
-      const info = await getVideoInfo(bv);
-      if (!info) throw new Error(`无法获取视频信息（${_vErr || '页面数据不可用'}）`);
-      const st = info.stat || {};
-      const o = info.owner || {};
-      const face = imgUrl(o.face, '@48w_48h.webp');
-      let tagsHtml = '';
-      try {
-        const tr = await fetch(`https://api.bilibili.com/x/tag/archive/tags?bvid=${bv}`, { credentials: 'include' });
-        const tj = await tr.json();
-        if (tj.code === 0 && Array.isArray(tj.data)) {
-          tagsHtml = '<div class="bcs-tags">' +
-            tj.data.slice(0, 12).map(t => `<span class="bcs-tag-chip">${esc(t.tag_name)}</span>`).join('') +
-            '</div>';
-        }
-      } catch (e) {}
-      const date = new Date((info.pubdate || 0) * 1000);
-      const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      box.innerHTML = `
-        <div class="bcs-intro-title">${esc(info.title)}</div>
-        <div class="bcs-intro-meta">${ds} · ${fmtLike(st.view || 0)}播放 · ${fmtLike(st.danmaku || 0)}弹幕</div>
-        ${o.mid ? `
-        <div class="bcs-intro-up">
-          <img class="bcs-intro-face" src="${face}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${imgUrl(o.face)}'"/>
-          <span class="bcs-intro-uname">${esc(o.name || '')}</span>
-        </div>` : ''}
-        <div class="bcs-intro-stats">
-          <span title="点赞">👍 ${fmtLike(st.like || 0)}</span>
-          <span title="投币">🪙 ${fmtLike(st.coin || 0)}</span>
-          <span title="收藏">⭐ ${fmtLike(st.favorite || 0)}</span>
-          <span title="评论">💬 ${fmtLike(st.reply || 0)}</span>
-          <span title="分享">↗ ${fmtLike(st.share || 0)}</span>
-        </div>
-        ${tagsHtml}
-        <div class="bcs-intro-desc">${esc(info.desc).replace(/\n/g, '<br>')}</div>
-      `;
-    } catch (e) {
-      box.innerHTML = '<div class="bcs-intro-loading">简介加载失败</div>';
-    }
-  }
-
   /* ============================================================
      PAGE LAYOUT: comments become the first block of B站's
      native right column (.right-container), fully in-flow.
@@ -843,7 +793,7 @@
         S.oid = null; S.upMid = null;
         S.comments = []; S.page = 1;
         S.hasMore = true; S.expanded = {};
-        setTimeout(() => { load(true); renderIntro(); }, 800);
+        setTimeout(() => { load(true); }, 800);
       }
     }).observe(document.body, { childList: true, subtree: true });
   }
@@ -854,7 +804,6 @@
   function init() {
     createUI();
     applyLayout();
-    renderIntro();
     watchUrl();
     load(true);
   }
