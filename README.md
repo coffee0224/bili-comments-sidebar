@@ -44,7 +44,7 @@
 - `#bili-comments-sidebar` 永远挂在 `<body>`，`position:fixed`，绝不进入 `#app` 子树；
 - `positionSidebar()` 读取原生 `.right-container` 的矩形停靠面板：**top 每帧跟随槽位（rAF 节流 scroll 监听），页面滚动时面板随之移动 = 文档流观感**；left/width 由 1s 漂移巡检 + resize 监听跟踪，剧场模式等结构变化时自动让位；无边框/阴影/圆角，视觉上就是页面原生列；
 - 评论模式：原生右栏用 `visibility:hidden` 隐藏（**不是** `display:none`）——它继续占据 411px 槽位，页面几何完全不变，面板盖在腾出的空槽上，视觉与原生列无异；
-- 简介模式：面板 `display:none`，原生右栏原样恢复；右侧粉色 `#bcs-fab` 浮标（挂在 `<body>`）是回程控制；
+- 简介模式：只隐藏评论相关区块，**标签行（简介/评论）仍钉在右栏顶部**（v2.11 行为）；原生内容通过纯 CSS `margin-top` 下移让位给标签行，回程直接点「评论」标签；
 - 对 B站 DOM 的改动量：**零**（不插节点、不改类名、不动样式，只在 `<html>` 上开关自己的类）；
 - 评论正文点击救援（window 捕获阶段转发 + 几何命中兜底）应对部分页面状态的 `pointer-events:none` 祖先；
 - 视频信息：优先从页面内联 `<script>`（`__INITIAL_STATE__` 所在的 SSR 数据）提取，view API 仅作兜底（失效视频 `-404` 也能出评论列表）。

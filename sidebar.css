@@ -98,13 +98,25 @@
        (NOT display:none): it keeps occupying its 411px slot, so the
        flex row / video width / page geometry stay byte-identical, and
        our fixed panel docks exactly on top of the freed slot
-     - intro mode → our panel display:none, native column untouched;
-       the fixed #bcs-fab pill on <body> is the switch-back control */
+     - intro mode → only the comment machinery hides; the tab bar
+       (简介/评论) stays docked at the top of the column (v2.15) */
 html.bcs-layout:not(.bcs-intro-page) .right-container {
   visibility: hidden !important;
 }
-html.bcs-intro-page #bili-comments-sidebar {
+/* v2.15: the tab bar (简介/评论) stays at the top of the column in BOTH
+   modes — v2.11 behaviour. Intro mode hides only the comment machinery;
+   the native content is pushed down by exactly the tab-bar height so our
+   fixed header slots in above it (pure CSS margin, zero DOM mutation). */
+html.bcs-intro-page #bili-comments-sidebar .bcs-toolbar,
+html.bcs-intro-page #bili-comments-sidebar .bcs-list,
+html.bcs-intro-page #bili-comments-sidebar .bcs-footer {
   display: none !important;
+}
+html.bcs-intro-page #bili-comments-sidebar .bcs-header-row {
+  margin-bottom: 0;
+}
+html.bcs-intro-page .right-container-inner {
+  margin-top: 52px !important;
 }
 
 /* ============================================================
@@ -179,40 +191,8 @@ html.bcs-intro-page #bili-comments-sidebar {
   padding: 2px 8px; border-radius: 10px;
 }
 
-/* ---- Floating switch-back pill (intro mode) --------------------------
-   In intro mode the sidebar column is display:none and the native right
-   column is fully restored; this fixed pill on <body> is the only
-   visible piece of us and the switch-back control. */
-#bcs-fab {
-  position: fixed;
-  right: 28px;
-  top: 96px;
-  z-index: 100000;
-  display: none;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 16px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #fb7299, #ff9ab5);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  cursor: pointer;
-  box-shadow: 0 4px 18px rgba(251,114,153,0.45);
-  pointer-events: auto;
-  transition: transform 0.15s ease;
-}
-#bcs-fab:hover { transform: scale(1.06); }
-#bcs-fab span {
-  background: rgba(255,255,255,0.28);
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-}
-html.bcs-intro-page #bcs-fab { display: inline-flex; }
+/* (v2.15: the old #bcs-fab switch-back pill is gone — the persistent
+   tab bar in the column header replaces it in intro mode.) */
 .bcs-header-actions {
   display: flex;
   align-items: center;

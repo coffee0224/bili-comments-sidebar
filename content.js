@@ -361,7 +361,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.14</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.15</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -371,20 +371,9 @@
     // bili-header fragment-anchor remount. positionSidebar() below only
     // READS rects and sets our own inline style; it never moves this node.
     document.body.appendChild(sb);
+    // v2.15: no floating switch-back pill — the tab bar (简介/评论)
+    // stays docked at the top of the column in BOTH modes (v2.11 look).
     S.sb = sb; // survive B站 rebuilds: re-find via reference, not just ID
-
-    // Floating switch-back pill — the ONLY thing we show in intro mode
-    // (the sidebar column itself is display:none there, the native right
-    // column is fully restored). Lives on <body>, which is proven-safe
-    // territory (the old build kept the whole sidebar there for its
-    // entire life without ever disturbing bili-header).
-    const fab = document.createElement('button');
-    fab.id = 'bcs-fab';
-    fab.title = '切换到评论区';
-    fab.innerHTML = '💬 评论 <span id="J-fabcnt">…</span>';
-    document.body.appendChild(fab);
-    S.fab = fab;
-    fab.onclick = () => setTab('comments');
 
     // ---- events ----
     // timestamp click -> seek
@@ -463,8 +452,8 @@
     //     our column display:none, native column fully restored
     // No DOM mutation of B站's nodes at any point (that class-toggling
     // plus our node inside their column was the bili-header remount
-    // crash path). The #bcs-fab pill (fixed, on <body>) is the
-    // switch-back control while in intro mode.
+    // crash path). The persistent tab bar (visible in intro mode too,
+    // v2.15) is the switch-back control.
     const setTab = mode => {
       S.tabMode = mode;
       const intro = mode === 'intro';
@@ -619,24 +608,20 @@
   let driftTimer = null, scrollHooked = false;
   function startDriftWatch() {
     if (driftTimer) return;
-    // page scroll moves the slot -> move the panel with it (in-flow feel)
+    // page scroll moves the slot -> move the panel with it (in-flow feel);
+    // runs in BOTH modes now — the tab bar is visible in intro mode too
     if (!scrollHooked) {
       scrollHooked = true;
       let ticking = false;
       window.addEventListener('scroll', () => {
-        if (ticking || S.tabMode === 'intro') return;
+        if (ticking) return;
         ticking = true;
         requestAnimationFrame(() => { ticking = false; positionSidebar(); });
       }, { passive: true });
     }
     // cheap 1s check catches resize / SPA / theater drift of left+width
-    driftTimer = setInterval(() => {
-      if (S.tabMode === 'intro') return; // hidden anyway
-      positionSidebar();
-    }, 1000);
-    window.addEventListener('resize', () => {
-      if (S.tabMode !== 'intro') positionSidebar();
-    });
+    driftTimer = setInterval(positionSidebar, 1000);
+    window.addEventListener('resize', positionSidebar);
   }
 
   function applyLayout() {
@@ -684,8 +669,6 @@
       const data = await apiRootComments(S.oid, S.page, S.sort);
       S.total = data.page?.count || 0;
       $('J-cnt').textContent = S.total.toLocaleString();
-      const fc = $('J-fabcnt');
-      if (fc) fc.textContent = S.total > 9999 ? (S.total / 10000).toFixed(1) + '万' : String(S.total);
 
       const items = data.replies || [];
       if (items.length === 0) { S.hasMore = false; }
@@ -915,7 +898,7 @@
     let last = location.href;
     new MutationObserver(() => {
       // Re-dock if B站 rebuilt the right column (rect changed)
-      if (MODE.mount && S.tabMode !== 'intro') positionSidebar();
+      if (MODE.mount) positionSidebar();
       if (location.href !== last) {
         last = location.href;
         S.oid = null; S.upMid = null;
@@ -937,7 +920,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.14 mode=' + BCS_MODE +
+  console.log('[BCS] v2.15 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
