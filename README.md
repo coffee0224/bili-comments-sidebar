@@ -35,19 +35,17 @@
 | 时间戳跳转 | 点击评论里的 mm:ss |
 | 回到顶部 | 点击底部「⬆ 回到顶部」 |
 
-## 架构 (v2.12, 本地 fork)
+## 架构 (v2.13, 本地 fork)
 
-关键结论（大量 bisect 实验 + 控制变量复现得出）：**任何外来节点插入 B站 `.right-container` 内部，都会在 B站挂载/重建窗口造成两个永久性破坏**：
+关键结论（bisect + E1–E4 闲置页对照实验 + 全模式复现）：**任何外来节点插入 B站 `#app` 子树内部（无论是 `.right-container` 还是其父级 `.video-container-v1`），只要落在 B站挂载/重建窗口内，就会让 `bili-header` 的片段锚点重挂载崩溃**（`nextSibling of null` → `#biliMainHeader` 变空壳 → 顶部导航消失）；插入 `.right-container` 内部还会额外永久破坏 `video-awesome-img` 懒加载注册表（原生右栏灰图）。而商店原版"整个面板挂 `<body>`"的模式从未触发任何问题。
 
-1. `video-awesome-img` 懒加载注册表被破坏 → 原生右栏图片永远灰块（content 数据完整但永不渲染）；
-2. `bili-header` 片段锚点重挂载崩溃（`nextSibling of null`）→ `#biliMainHeader` 变空壳 → 顶部导航消失。
+因此 v2.13 采用**body 固定面板架构**：
 
-因此 v2.12 采用**兄弟列架构**：
-
-- 侧栏节点是 `.video-container-v1` 的最后一个子元素（`.right-container` 的兄弟，永不进入其内部）；
-- 评论模式：`html.bcs-layout:not(.bcs-intro-page) .right-container{display:none!important}` 纯 CSS 隐藏原生右栏，我们的列以 `flex:0 0 411px; position:sticky; top:84px` 占据同一槽位；
-- 简介模式：`html.bcs-intro-page #bili-comments-sidebar{display:none!important}`，原生右栏完整恢复；右侧粉色 `#bcs-fab` 浮标（挂在 `<body>`，已被验证安全的位置）是回程控制；
-- 对 B站 DOM 的改动量：**零**（不改类名、不移动节点、只在 html 元素上开关自己的类）；
+- `#bili-comments-sidebar` 永远挂在 `<body>`，`position:fixed`，绝不进入 `#app` 子树；
+- `positionSidebar()` 读取原生 `.right-container` 的矩形，把面板精确停靠在原生右栏所在槽位（left/top/width/height 全部由 JS 按实测矩形设置，1s 漂移巡检 + resize 监听自动重新停靠，剧场模式等结构变化时自动让位）；
+- 评论模式：原生右栏用 `visibility:hidden` 隐藏（**不是** `display:none`）——它继续占据 411px 槽位，页面几何完全不变，面板盖在腾出的空槽上，视觉与原生列无异；
+- 简介模式：面板 `display:none`，原生右栏原样恢复；右侧粉色 `#bcs-fab` 浮标（挂在 `<body>`）是回程控制；
+- 对 B站 DOM 的改动量：**零**（不插节点、不改类名、不动样式，只在 `<html>` 上开关自己的类）；
 - 评论正文点击救援（window 捕获阶段转发 + 几何命中兜底）应对部分页面状态的 `pointer-events:none` 祖先；
 - 视频信息：优先从页面内联 `<script>`（`__INITIAL_STATE__` 所在的 SSR 数据）提取，view API 仅作兜底（失效视频 `-404` 也能出评论列表）。
 

@@ -84,43 +84,47 @@
   --lv-pink-bg:   rgba(232,69,119,0.08);
 }
 
-/* ---- Layout: SIBLING COLUMN, never inside .right-container (v2.12) ----
-   Any foreign node inside .right-container during B站's mount/rebuild
-   window (a) permanently breaks the video-awesome-img lazy registry
-   (grey covers) and (b) crashes bili-header's fragment-anchor remount
-   (nextSibling of null → empty #biliMainHeader → site nav gone).
-   The sidebar therefore lives as the LAST child of
-   .video-container-v1 — a sibling AFTER the native .right-container:
-     comments mode → native column display:none (pure CSS, zero DOM
-                      mutation), our column takes its exact slot
-     intro mode    → our column display:none, native column fully
-                      restored; a fixed #bcs-fab pill on <body> is the
-                      switch-back control */
+/* ---- Layout: FIXED PANEL ON <body> (v2.13) ----------------------
+   Empirical rule (bisect + E1-E4 + repro): ANY foreign node inside
+   B站's #app subtree — .right-container OR its parent
+   .video-container-v1 — inserted during their mount/rebuild window
+   crashes the bili-header fragment-anchor remount (nextSibling of
+   null → empty #biliMainHeader → site nav gone). The store-original
+   extension kept its whole panel on <body> and never hit it.
+   Therefore:
+     - #bili-comments-sidebar lives on <body>, position:fixed, its box
+       computed in JS from the native .right-container rect
+     - comments mode → native column hidden with visibility:hidden
+       (NOT display:none): it keeps occupying its 411px slot, so the
+       flex row / video width / page geometry stay byte-identical, and
+       our fixed panel docks exactly on top of the freed slot
+     - intro mode → our panel display:none, native column untouched;
+       the fixed #bcs-fab pill on <body> is the switch-back control */
 html.bcs-layout:not(.bcs-intro-page) .right-container {
-  display: none !important;
+  visibility: hidden !important;
 }
 html.bcs-intro-page #bili-comments-sidebar {
   display: none !important;
 }
 
 /* ============================================================
-   SHELL - in-flow sibling column of .video-container-v1 (flex row),
-   sized to the native .right-container slot it replaces (P13 probe:
-   rc = flex, width 411px on this build). Sticky matches B-station's own
-   right-column follow behavior while the page scrolls.
+   SHELL - fixed panel on <body> (v2.13). Its box (left/top/width/
+   height) is set inline by positionSidebar() from the native
+   .right-container rect, so it always sits in the exact slot the
+   (visibility:hidden) native column still reserves. Internal layout:
+   flex column, header fixed height, list flexes and scrolls itself,
+   footer pinned.
    ============================================================ */
 #bili-comments-sidebar {
-  position: sticky;
-  top: 84px;             /* below the fixed mini nav */
-  z-index: 10;           /* .video-container-v1 paints above static content; this lifts us */
+  position: fixed;
+  z-index: 1000;         /* above page content; the old store build used the same pattern */
   /* pointer-events: some page states set pointer-events:none on an ancestor.
      Inherited none makes our whole subtree un-hit-testable: real clicks pass
      through and elementsFromPoint() skips our nodes. Re-enabling here
      restores hit-testing AND lets the event-rescue see our elements. */
   pointer-events: auto;
-  align-self: flex-start;
-  flex: 0 0 411px;
-  width: 411px;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   height: auto;
   background: var(--bg);
@@ -128,6 +132,7 @@ html.bcs-intro-page #bili-comments-sidebar {
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   border: 1px solid var(--border);
   border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 
 /* Smooth color transition when switching themes */
@@ -290,7 +295,8 @@ html.bcs-intro-page #bcs-fab { display: inline-flex; }
    the page (and the left video) along
    ============================================================ */
 .bcs-list {
-  max-height: min(75vh, 1200px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;

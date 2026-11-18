@@ -361,15 +361,17 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.12</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.13</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
-    // Attach to document first so getElementById works below;
-    // applyLayout() will MOVE this node into .video-container-v1
-    // (moving preserves listeners).
+    // Attach to document — and it STAYS on <body> forever (v2.13):
+    // any node inside B站's #app subtree (.video-container-v1 AND
+    // .right-container alike) during their mount window crashes the
+    // bili-header fragment-anchor remount. positionSidebar() below only
+    // READS rects and sets our own inline style; it never moves this node.
     document.body.appendChild(sb);
-    S.sb = sb; // survive B站 rebuilds: re-mount via reference, not just ID
+    S.sb = sb; // survive B站 rebuilds: re-find via reference, not just ID
 
     // Floating switch-back pill — the ONLY thing we show in intro mode
     // (the sidebar column itself is display:none there, the native right
@@ -469,6 +471,8 @@
       document.documentElement.classList.toggle('bcs-intro-page', intro);
       $('J-tab-c').classList.toggle('on', !intro);
       $('J-tab-i').classList.toggle('on', intro);
+      // the fixed panel needs a fresh dock whenever it becomes visible
+      if (!intro && S.position) S.position();
     };
     S.setTab = setTab;
     $('J-tab-c').onclick = () => setTab('comments');
@@ -581,27 +585,52 @@
               rc.querySelector('.up-panel-container') ||
               rc.querySelector('.video-pod'));
   }
-  function mountSidebar() {
-    // getElementById returns null once B站's rebuild WIPES us from the
-    // document — but the node object (with all listeners) lives on in
-    // S.sb. Fall back to the stored reference and re-append it.
-    let sb = document.getElementById('bili-comments-sidebar') || S.sb;
-    const host = document.querySelector('.video-container-v1');
+  function positionSidebar() {
+    // v2.13: the sidebar NEVER enters B站's DOM. Insertion into
+    // .right-container OR its parent .video-container-v1 (both inside
+    // #app) during B站's mount/rebuild window crashes the bili-header
+    // fragment-anchor remount (nextSibling of null → empty
+    // #biliMainHeader → site nav gone). The store-original pattern —
+    // fixed node on <body> — never triggered it. So: sb stays on
+    // <body>, position:fixed, and we compute its box from the native
+    // .right-container rect (which still occupies layout space because
+    // comments mode hides it with visibility:hidden, not display:none).
+    const sb = document.getElementById('bili-comments-sidebar') || S.sb;
     const rc = document.querySelector('.right-container');
-    if (!sb || !host || !rc || !rightSettled(rc)) return false;
-    // v2.12: NEVER inside .right-container. A foreign child there during
-    // B站's mount/rebuild window permanently breaks the video-awesome-img
-    // lazy registry (grey covers) AND crashes bili-header's fragment
-    // anchor remount (nextSibling of null → empty #biliMainHeader → site
-    // nav gone). We mount as a SIBLING COLUMN: the LAST child of
-    // .video-container-v1, AFTER the native .right-container. Hiding the
-    // native column in comments mode is pure CSS (see sidebar.css), so
-    // B站's DOM is never mutated by us anywhere.
-    if (sb.parentElement !== host) host.appendChild(sb);
-    // the fab pill always lives on <body> (proven-safe territory)
-    const fab = document.getElementById('bcs-fab') || S.fab;
-    if (fab && fab.parentElement !== document.body) document.body.appendChild(fab);
+    if (!sb || !rc || !rightSettled(rc)) return false;
+    const r = rc.getBoundingClientRect();
+    if (r.width < 50 || r.height < 100) {
+      // theater/wide mode restructured the layout — get out of the way
+      if (sb.style.display !== 'none') sb.style.display = 'none';
+      return true;
+    }
+    // idempotent: the MutationObserver calls this on every page mutation;
+    // only write styles when the target box actually changed
+    const left = Math.round(r.left), top = Math.max(84, Math.round(r.top));
+    const w = Math.round(r.width), h = Math.round(Math.min(window.innerHeight - 100, r.height + 400));
+    if (sb.style.display === 'none') sb.style.display = '';
+    if (Number(sb.dataset.l) === left && Number(sb.dataset.t) === top &&
+        Number(sb.dataset.w) === w && Number(sb.dataset.h) === h) return true;
+    sb.dataset.l = left; sb.dataset.t = top; sb.dataset.w = w; sb.dataset.h = h;
+    sb.style.left = left + 'px';
+    sb.style.top = top + 'px';
+    sb.style.width = w + 'px';
+    sb.style.height = h + 'px';
     return true;
+  }
+  S.position = positionSidebar;
+
+  let driftTimer = null;
+  function startDriftWatch() {
+    if (driftTimer) return;
+    // cheap 1s check: rc box moved (resize/SPA/theater) → re-dock
+    driftTimer = setInterval(() => {
+      if (S.tabMode === 'intro') return; // hidden anyway
+      positionSidebar();
+    }, 1000);
+    window.addEventListener('resize', () => {
+      if (S.tabMode !== 'intro') positionSidebar();
+    });
   }
 
   function applyLayout() {
@@ -610,10 +639,11 @@
       document.documentElement.classList.add('bcs-layout');
     }
     if (!MODE.mount) return;
-    if (!mountSidebar()) {
+    startDriftWatch();
+    if (!positionSidebar()) {
       // video area not rendered yet — retry until it appears
       const t = setInterval(() => {
-        if (mountSidebar()) clearInterval(t);
+        if (positionSidebar()) clearInterval(t);
       }, 500);
       setTimeout(() => clearInterval(t), 30000);
     }
@@ -878,8 +908,8 @@
   function watchUrl() {
     let last = location.href;
     new MutationObserver(() => {
-      // Re-mount if B站 rebuilt the right column without our block
-      if (MODE.mount) mountSidebar();
+      // Re-dock if B站 rebuilt the right column (rect changed)
+      if (MODE.mount && S.tabMode !== 'intro') positionSidebar();
       if (location.href !== last) {
         last = location.href;
         S.oid = null; S.upMid = null;
@@ -901,7 +931,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.12 mode=' + BCS_MODE +
+  console.log('[BCS] v2.13 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
