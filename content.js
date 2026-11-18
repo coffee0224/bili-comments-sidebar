@@ -361,7 +361,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.4</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.5</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -369,6 +369,7 @@
     // applyLayout() will MOVE this node into .right-container
     // (moving preserves listeners).
     document.body.appendChild(sb);
+    S.sb = sb; // survive B站 rebuilds: re-mount via reference, not just ID
 
     // ---- events ----
     // timestamp click -> seek
@@ -629,10 +630,16 @@
               rc.querySelector('.video-pod'));
   }
   function mountSidebar() {
-    const sb = document.getElementById('bili-comments-sidebar');
+    // getElementById returns null once B站's rebuild WIPES us from the
+    // document — but the node object (with all listeners) lives on in
+    // S.sb. Fall back to the stored reference and re-append it.
+    let sb = document.getElementById('bili-comments-sidebar') || S.sb;
     const rc = document.querySelector('.right-container');
     if (!sb || !rc || !rightSettled(rc)) return false;
     if (rc.lastElementChild !== sb) rc.appendChild(sb); // never steal firstChild
+    // re-assert the desired state after a rebuild replaced the native
+    // blocks (fresh nodes have no .bcs-native-hide)
+    if (S.bootDone && S.tabMode !== 'intro') setNativeCollapsed(true);
     return true;
   }
   // Collapse/expand the native right-column blocks via a class on those
@@ -946,7 +953,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.4 mode=' + BCS_MODE +
+  console.log('[BCS] v2.5 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
