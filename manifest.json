@@ -10,9 +10,16 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.bilibili.com/video/*"],
-      "js": ["lib.js", "content.js"],
-      "css": ["sidebar.css"],
+      "matches": [
+        "https://www.bilibili.com/video/*"
+      ],
+      "js": [
+        "lib.js",
+        "content.js"
+      ],
+      "css": [
+        "sidebar.css"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -20,6 +27,8 @@
     "https://api.bilibili.com/*",
     "https://www.bilibili.com/*"
   ],
-  "permissions": ["storage"],
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm0ZN3lKKQVePFMlyxYG09gGK0eULQ5ecXIbneZAbvhYLciITtYU6wDBNI61s9dSJQx9DyNCF7O9oRsGZFhB9eG7IwsOaQ2mun+rnNSyzNHZRVe+JKPR+m9HF8E9kZInzktd62co/B+qs7zlU4NjIaVz1GJK97utvqpIB7KjBxflev9QJh+QlLQHbwiQjKA6snytoMHj4odQGcAUvi60OMf9u+Dptq2TtZ3tkXvBvfaie9bS/joBbQ/n7WkIjR9KQrqIfGWnlzxBDTfMVpDGTqw5vAcQc9AKqynMKMLLuKoT4n7ua19dHXfl2ZtSs6IGV/sHAJgHg/HQM3GjkTO5PxWIu7irwIDAQAB"
+  "permissions": [
+    "storage"
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm0ZN3lKKQVePFMlyxYG09kGK0eULQ5ecXIbneZAbvhYLciITtYU6wDBNI61s9SJQx9DyNCF7O9oRsGZFhB9eG7IwsOaQ2mun+rnNSyzNHZRVe+JKPR+m9HF8EzKZnzktd62so/B+qs7zlU4NjIaVz1GJK97utPvqpIB7KjBxflev9QbRJiLQHbwi+QjKA6snytoMHj4odQGcAUvi60OMF0+Dptq2TtZ3tklUzBvfaieSb/joOqkIwR9KQrqIfGWnlzxDDTfMVpDGTqw5X7vAcZc9AKqynMKMLLuKoT4N7ua19HXfl2ZtSs6IGV/sHAJgHg/HQM3GjkTO5PxWIu7irwIDAQAB"
 }
