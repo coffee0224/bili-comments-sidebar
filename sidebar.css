@@ -1,0 +1,486 @@
+/* ============================================================
+   THEME VARIABLES
+   ============================================================ */
+
+/* ---- Dark ---- */
+#bili-comments-sidebar {
+  --bg:           #111827;
+  --bg-header:    #0d1117;
+  --bg-hover:     rgba(255,255,255,0.012);
+  --bg-subtle:    rgba(255,255,255,0.03);
+  --bg-btn:       rgba(255,255,255,0.05);
+  --bg-btn-hover: rgba(255,255,255,0.1);
+  --bg-pill-on:   rgba(88,166,255,0.12);
+  --bg-pill-pink: rgba(251,114,153,0.12);
+  --bg-pic:       #1e293b;
+  --bg-sticky:    #111827;
+  --bg-sticky-btn:#1e293b;
+  --border:       #1e293b;
+  --border-strong:#334155;
+  --text:         #d1d5db;
+  --text-body:    #d1d5db;
+  --text-reply:   #9ca3af;
+  --text-muted:   #6b7280;
+  --text-faint:   #4b5563;
+  --text-dim:     #374151;
+  --accent:       #58a6ff;
+  --accent-light: #79c0ff;
+  --pink:         #fb7299;
+  --green:        #56d364;
+  --yellow:       #ffc107;
+  --link:         #58a6ff;
+  --hl-bg:        rgba(251,114,153,0.2);
+  --scrollbar:    rgba(255,255,255,0.07);
+  --scrollbar-h:  rgba(255,255,255,0.14);
+  --shadow-sticky:rgba(0,0,0,0.4);
+  --spinner-track:#1e293b;
+  --thread-d1:    #1e3a5f;
+  --thread-d2:    #3b1f3b;
+  --thread-d3:    #1f3b2a;
+  --lv-gray-bg:   rgba(107,114,128,0.1);
+  --lv-green-bg:  rgba(86,211,100,0.08);
+  --lv-blue-bg:   rgba(88,166,255,0.08);
+  --lv-pink-bg:   rgba(251,114,153,0.08);
+}
+
+/* ---- Light (default: matches B站 native right column) ---- */
+#bili-comments-sidebar.light {
+  --bg:           #ffffff;
+  --bg-header:    #ffffff;
+  --bg-hover:     rgba(0,0,0,0.02);
+  --bg-subtle:    rgba(0,0,0,0.03);
+  --bg-btn:       rgba(0,0,0,0.04);
+  --bg-btn-hover: rgba(0,0,0,0.08);
+  --bg-pill-on:   rgba(0,130,180,0.1);
+  --bg-pill-pink: rgba(251,114,153,0.1);
+  --bg-pic:       #e9ecef;
+  --bg-sticky:    #ffffff;
+  --bg-sticky-btn:#f1f3f5;
+  --border:       #e3e5e7;
+  --border-strong:#ced4da;
+  --text:         #212529;
+  --text-body:    #343a40;
+  --text-reply:   #495057;
+  --text-muted:   #868e96;
+  --text-faint:   #adb5bd;
+  --text-dim:     #ced4da;
+  --accent:       #0082b4;
+  --accent-light: #00a1d6;
+  --pink:         #e84577;
+  --green:        #2b9348;
+  --yellow:       #e6a800;
+  --link:         #0082b4;
+  --hl-bg:        rgba(251,114,153,0.15);
+  --scrollbar:    rgba(0,0,0,0.08);
+  --scrollbar-h:  rgba(0,0,0,0.16);
+  --shadow-sticky:rgba(0,0,0,0.1);
+  --spinner-track:#dee2e6;
+  --thread-d1:    #bfd7ed;
+  --thread-d2:    #ecc5d5;
+  --thread-d3:    #c5e6cf;
+  --lv-gray-bg:   rgba(107,114,128,0.08);
+  --lv-green-bg:  rgba(43,147,72,0.08);
+  --lv-blue-bg:   rgba(0,130,180,0.08);
+  --lv-pink-bg:   rgba(232,69,119,0.08);
+}
+
+/* ============================================================
+   SHELL — an in-flow block inside B站's .right-container.
+   No fixed positioning, no own scroll: the page scrolls.
+   ============================================================ */
+#bili-comments-sidebar {
+  /* relative + z-index: bilibili's .video-container-v1 (position:relative,
+     full-width, later in DOM than .right-container) paints above static
+     content in the right column and swallows all clicks. right-container is
+     z-index:auto (no stacking context of its own), so this z-index competes
+     in the root stacking context and lifts the whole sidebar above it. */
+  position: relative;
+  z-index: 10;
+  /* pointer-events: some bilibili page states set pointer-events:none on an
+     ancestor (e.g. .right-container wrappers). Inherited none makes our whole
+     subtree un-hit-testable: real mouse clicks pass through to the page and
+     elementsFromPoint() skips our nodes entirely (which is also why the
+     JS event-rescue could not find anything to forward to). Re-enabling on
+     the subtree root restores hit-testing AND makes the rescue able to see
+     our elements again. */
+  pointer-events: auto;
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Smooth color transition when switching themes */
+#bili-comments-sidebar,
+#bili-comments-sidebar * {
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 0.25s;
+  transition-timing-function: ease;
+}
+
+/* ============================================================
+   INTRO SECTION
+   ============================================================ */
+.bcs-intro {
+  padding: 12px 4px 10px;
+  background: var(--bg-header);
+}
+.bcs-intro-loading {
+  font-size: 12px; color: var(--text-faint);
+  padding: 8px 0; text-align: center;
+}
+.bcs-intro-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--text); line-height: 1.45;
+  margin-bottom: 6px;
+}
+.bcs-intro-meta {
+  font-size: 11px; color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.bcs-intro-up {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.bcs-intro-face {
+  width: 32px; height: 32px;
+  border-radius: 50%; object-fit: cover;
+  background: var(--bg-pic);
+}
+.bcs-intro-uname {
+  font-size: 13px; font-weight: 600;
+  color: var(--pink);
+}
+.bcs-intro-stats {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  font-size: 12px; color: var(--text-body);
+  margin-bottom: 10px;
+}
+.bcs-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 10px;
+}
+.bcs-tag-chip {
+  font-size: 11px; padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-pill-on);
+  color: var(--accent-light);
+  white-space: nowrap;
+}
+.bcs-intro-desc {
+  font-size: 12.5px; line-height: 1.7;
+  color: var(--text-body);
+  word-break: break-word;
+  white-space: pre-line;
+  /* long descriptions scroll on their own without dragging the page */
+  max-height: 30vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ============================================================
+   HEADER (comments toolbar)
+   ============================================================ */
+.bcs-header {
+  padding: 10px 4px;
+  background: var(--bg-header);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.bcs-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.bcs-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--accent);
+  display: flex; align-items: center; gap: 8px;
+}
+.bcs-title svg { fill: var(--accent); }
+.bcs-title .cnt {
+  font-size: 11px; font-weight: 500;
+  background: var(--bg-pill-on);
+  color: var(--accent-light);
+  padding: 2px 8px; border-radius: 10px;
+}
+.bcs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bcs-theme-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: var(--bg-btn);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.bcs-theme-btn:hover {
+  background: var(--bg-btn-hover);
+  color: var(--text);
+}
+.bcs-theme-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+.bcs-toolbar {
+  display: flex; gap: 6px;
+  align-items: center; flex-wrap: wrap;
+}
+.bcs-pill-group {
+  display: flex; border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.bcs-pill {
+  padding: 4px 10px; border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
+}
+.bcs-pill:hover { color: var(--text-faint); background: var(--bg-subtle); }
+.bcs-pill.on { background: var(--bg-pill-on); color: var(--accent); }
+.bcs-pill.on-pink { background: var(--bg-pill-pink); color: var(--pink); }
+
+.bcs-search {
+  flex: 1; min-width: 60px;
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-size: 11px; outline: none;
+  transition: border-color 0.15s;
+}
+.bcs-search::placeholder { color: var(--text-dim); }
+.bcs-search:focus { border-color: var(--accent); }
+
+.bcs-icon-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.bcs-icon-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--bg-pill-on); }
+.bcs-icon-btn.spin svg { animation: bcs-spin 0.6s linear infinite; }
+@keyframes bcs-spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   LIST — its own scroll container so the wheel never drags
+   the page (and the left video) along
+   ============================================================ */
+.bcs-list {
+  max-height: min(75vh, 1200px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+.bcs-list::-webkit-scrollbar { width: 8px; }
+.bcs-list::-webkit-scrollbar-track { background: transparent; }
+.bcs-list::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
+.bcs-list::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-h); }
+.bcs-sentinel { height: 1px; }
+
+.bcs-footer {
+  padding: 6px 4px 10px;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  font-size: 10px; color: var(--text-dim);
+}
+.bcs-footer-btn {
+  padding: 3px 8px; border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px; cursor: pointer;
+  transition: all 0.15s;
+}
+.bcs-footer-btn:hover { color: var(--accent); border-color: var(--accent); }
+.bcs-ver { margin-left: auto; margin-right: 8px; font-size: 10px; color: var(--text-dim); }
+
+/* ============================================================
+   TIMESTAMP LINKS
+   ============================================================ */
+.bcs-time {
+  color: var(--accent);
+  cursor: pointer;
+  border-bottom: 1px dashed var(--accent);
+  padding: 0 1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.bcs-time:hover {
+  color: var(--accent-light);
+  border-bottom-style: solid;
+}
+
+/* ============================================================
+   COMMENT THREAD
+   ============================================================ */
+.bcs-root { border-bottom: 1px solid var(--border); }
+
+.bcs-c { padding: 10px 4px 6px; transition: background 0.1s; }
+.bcs-c:hover { background: var(--bg-hover); }
+
+/* ---- Thread lines ---- */
+.bcs-replies-wrap { position: relative; margin-left: 20px; }
+.bcs-thread-line {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 20px; cursor: pointer; z-index: 1;
+}
+.bcs-thread-line::after {
+  content: ''; position: absolute;
+  left: 9px; top: 0; bottom: 0;
+  width: 2px; border-radius: 1px;
+  transition: background 0.15s;
+}
+.bcs-replies-wrap.d1 .bcs-thread-line::after { background: var(--thread-d1); }
+.bcs-replies-wrap.d2 .bcs-thread-line::after { background: var(--thread-d2); }
+.bcs-replies-wrap.d3 .bcs-thread-line::after { background: var(--thread-d3); }
+.bcs-replies-wrap.d1:hover > .bcs-thread-line::after { background: var(--accent); }
+.bcs-replies-wrap.d2:hover > .bcs-thread-line::after { background: var(--pink); }
+.bcs-replies-wrap.d3:hover > .bcs-thread-line::after { background: var(--green); }
+.bcs-replies-inner { padding-left: 20px; }
+
+/* ---- Card header ---- */
+.bcs-c-head {
+  display: flex; align-items: center;
+  gap: 6px; margin-bottom: 3px; flex-wrap: wrap;
+}
+.bcs-av {
+  width: 26px; height: 26px;
+  border-radius: 50%; object-fit: cover;
+  flex-shrink: 0; background: var(--bg-pic);
+}
+.bcs-replies-wrap .bcs-av { width: 20px; height: 20px; }
+
+.bcs-un {
+  font-size: 12px; font-weight: 600;
+  color: var(--accent);
+  max-width: 150px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.bcs-un.up { color: var(--pink); }
+
+.bcs-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+.bcs-tag.up-tag { background: var(--bg-pill-pink); color: var(--pink); }
+.bcs-tag.top-tag { background: rgba(255,193,7,0.12); color: var(--yellow); }
+
+.bcs-lv { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+.bcs-lv.l0, .bcs-lv.l1 { background: var(--lv-gray-bg); color: var(--text-muted); }
+.bcs-lv.l2, .bcs-lv.l3 { background: var(--lv-green-bg); color: var(--green); }
+.bcs-lv.l4, .bcs-lv.l5 { background: var(--lv-blue-bg); color: var(--accent); }
+.bcs-lv.l6 { background: var(--lv-pink-bg); color: var(--pink); }
+
+.bcs-dot { color: var(--text-dim); font-size: 10px; }
+.bcs-ts { font-size: 10px; color: var(--text-faint); }
+
+/* ---- Body ---- */
+.bcs-c-body {
+  font-size: 13px; line-height: 1.7;
+  color: var(--text-body); word-break: break-word;
+  padding: 0 0 0 32px;
+}
+.bcs-replies-wrap .bcs-c-body {
+  font-size: 12.5px; color: var(--text-reply);
+  padding-left: 26px;
+}
+.bcs-c-body img.bcs-emote { height: 20px; vertical-align: text-bottom; margin: 0 1px; }
+.bcs-c-body img.bcs-emote[src=""] { display: none; }
+
+/* ---- Pictures ---- */
+.bcs-pics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bcs-pic-link {
+  display: block; border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, transform 0.15s;
+  max-width: 200px;
+}
+.bcs-pic-link:hover { border-color: var(--accent); transform: scale(1.02); }
+.bcs-pic {
+  display: block; max-width: 200px; max-height: 200px;
+  width: auto; height: auto; object-fit: cover;
+  background: var(--bg-pic);
+}
+.bcs-pic[src=""], .bcs-av[src=""] { visibility: hidden; }
+
+/* ---- Actions ---- */
+.bcs-c-acts {
+  display: flex; align-items: center; gap: 12px;
+  padding-left: 32px; margin-top: 2px;
+  font-size: 11px; color: var(--text-faint);
+}
+.bcs-replies-wrap .bcs-c-acts { padding-left: 26px; }
+.bcs-act { display: flex; align-items: center; gap: 3px; }
+.bcs-act svg { width: 12px; height: 12px; }
+.bcs-act.hot { color: var(--pink); }
+
+/* ---- Expand / collapse ---- */
+.bcs-more-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: 6px 0 8px 32px; padding: 4px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--accent);
+  font-size: 11px; cursor: pointer;
+  transition: all 0.15s;
+}
+.bcs-replies-wrap .bcs-more-btn { margin-left: 26px; }
+.bcs-more-btn:hover { background: var(--bg-pill-on); border-color: var(--accent); }
+.bcs-more-btn.busy { opacity: 0.5; pointer-events: none; }
+
+/* ---- States ---- */
+.bcs-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 20px; color: var(--text-faint);
+  gap: 10px; font-size: 13px;
+}
+.bcs-spinner {
+  width: 26px; height: 26px;
+  border: 3px solid var(--spinner-track);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bcs-spin 0.6s linear infinite;
+}
+
+/* ---- Highlight ---- */
+.bcs-hl { background: var(--hl-bg); border-radius: 2px; padding: 0 1px; }
+
+/* ---- Sticky collapse ---- */
+.bcs-expanded-wrap { position: relative; }
+.bcs-sticky-collapse {
+  position: sticky; bottom: 0; z-index: 2;
+  background: linear-gradient(to bottom, transparent, var(--bg-sticky) 40%);
+  padding: 16px 4px 8px;
+  display: flex; justify-content: center;
+}
+.bcs-sticky-collapse .bcs-more-btn {
+  margin: 0;
+  background: var(--bg-sticky-btn);
+  border-color: var(--border-strong);
+  font-weight: 600;
+  box-shadow: 0 -2px 12px var(--shadow-sticky);
+}
+.bcs-sticky-collapse .bcs-more-btn:hover {
+  background: var(--bg-pill-on);
+  border-color: var(--accent);
+}
