@@ -38,6 +38,8 @@
     // rpid -> { replies:[], done:bool }
     expanded: {},
     theme: 'light',  // 'light' matches B站 native page; toggle to 'dark' via header button
+    tabMode: 'comments', // 'comments' | 'intro'
+    bootDone: false,     // boot window finished → safe to collapse native blocks
   };
 
   /* ============================================================
@@ -359,7 +361,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.1</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.3</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -436,21 +438,23 @@
     $('J-refresh').onclick = () => { S.expanded = {}; load(true); };
 
     // ---- tabs: 评论 / 简介(B站右栏原内容) ------------------------------
-    // Exclusive switching: comments mode hides the native right-column
-    // siblings via CSS (see #bili-comments-sidebar:not(.bcs-intro-mode) ~ *),
-    // intro mode hides our comment-specific blocks. The header row with the
-    // two tabs stays visible in both modes.
+    // Exclusive switching: comments mode collapses the native right-column
+    // blocks via .bcs-native-hide (setNativeCollapsed), intro mode hides
+    // our comment-specific blocks. The header row with the two tabs stays
+    // visible in both modes.
     const setTab = mode => {
+      S.tabMode = mode;
       const intro = mode === 'intro';
       sb.classList.toggle('bcs-intro-mode', intro);
       $('J-tab-c').classList.toggle('on', !intro);
       $('J-tab-i').classList.toggle('on', intro);
       if (intro) {
+        setNativeCollapsed(false);
         // The native right column lazy-loads its images (data-src → src on
-        // scroll-into-view). While our comments tab hid the siblings with
-        // display:none, that loader never fired — and because comments
-        // scroll INSIDE #J-scroll, no window scroll event ever happens to
-        // wake it up. Force it: promote data-src ourselves and dispatch
+        // scroll-into-view). While our comments tab collapsed the native
+        // blocks, that loader never fired — and because comments scroll
+        // INSIDE #J-scroll, no window scroll event ever happens to wake it
+        // up. Force it: promote data-src ourselves and dispatch
         // scroll/resize so bilibili's own listeners re-evaluate.
         const wake = () => {
           const parent = sb.parentElement;
@@ -469,39 +473,40 @@
         // second shot + a REAL 1px scroll round-trip: loaders that ignore
         // synthetic events still react to actual scrollY movement
         setTimeout(() => { wake(); window.scrollBy(0, 1); window.scrollBy(0, -1); }, 350);
+      } else if (S.bootDone) {
+        setNativeCollapsed(true);
       }
     };
     S.setTab = setTab;
     $('J-tab-c').onclick = () => setTab('comments');
     $('J-tab-i').onclick = () => setTab('intro');
 
-    // render-then-collapse, v2.1 "boot" strategy: bilibili mounts
-    // right-column images client-side only when they are GENUINELY in
-    // the viewport at mount time. Our comment list (75vh) pushes the
-    // native content below the fold → mount never fires → 简介 tab
-    // shows grey placeholders forever. So during a short boot window
-    // we hide OUR comment blocks instead: the native content then sits
-    // at the top of the right column, in the viewport beside the
-    // player (exactly like the stock page) and its images mount. We
-    // poll until the sibling's <img>s are complete (hard cap 6s), then
-    // drop the boot class and collapse the native column. Re-armed on
-    // SPA navigation where the right column is rebuilt.
+    // render-then-collapse, v2.3 "boot" strategy: during a short boot
+    // window we hide OUR comment blocks (.bcs-boot), so the native
+    // content occupies the right column unimpeded — images mount with
+    // the registry intact (v2.3: we are appended LAST and only after
+    // the native cards settled). Poll the native blocks' <img>s until
+    // complete (hard cap 6s), then drop the boot class and collapse
+    // the native column (unless the user is on the 简介 tab). Re-armed
+    // on SPA navigation where the right column is rebuilt.
     let bootPoll = 0;
     const scheduleCollapse = () => {
       clearInterval(bootPoll);
-      sb.classList.remove('bcs-collapse'); // rebuild → render again first
-      sb.classList.add('bcs-boot');        // hide ours → native in viewport
+      S.bootDone = false;
+      setNativeCollapsed(false); // rebuilt native blocks start visible
+      sb.classList.add('bcs-boot'); // hide ours → native in viewport
       const t0 = Date.now();
       bootPoll = setInterval(() => {
         window.dispatchEvent(new Event('scroll')); // nudge scroll-driven mounts
-        const sib = sb.parentElement ? sb.nextElementSibling : null;
-        const imgs = sib ? [...sib.querySelectorAll('img')] : [];
+        const rc = sb.parentElement;
+        const imgs = rc ? [...rc.querySelectorAll('img')] : [];
         const ready = imgs.length > 0 && imgs.every(i => i.complete);
         const t = Date.now() - t0;
         if ((ready && t >= 1500) || t >= 6000) {
           clearInterval(bootPoll);
+          S.bootDone = true;
           sb.classList.remove('bcs-boot');
-          sb.classList.add('bcs-collapse');
+          if (S.tabMode !== 'intro') setNativeCollapsed(true);
         }
       }, 250);
     };
@@ -604,14 +609,35 @@
     document.documentElement.appendChild(st);
   }
 
-  // Insert (or re-insert after SPA rebuilds) the sidebar as the
-  // first child of B站's right column.
+  // Insert (or re-insert after SPA rebuilds) the sidebar — as the LAST
+  // child of B站's right column, and only AFTER its content settled.
+  // v2.3 bisect verdict: inserting as FIRST child (or mid-mount)
+  // permanently breaks bilibili's video-awesome-img lazy registry —
+  // every .video-awesome-img anchor stays EMPTY (grey covers, 0 <img>
+  // in the whole right column) for the page's lifetime. Appending last
+  // after the native cards exist leaves that registry intact.
+  function rightSettled(rc) {
+    return !!(rc.querySelector('.video-page-card-small') ||
+              rc.querySelector('.up-panel-container') ||
+              rc.querySelector('.video-pod'));
+  }
   function mountSidebar() {
     const sb = document.getElementById('bili-comments-sidebar');
     const rc = document.querySelector('.right-container');
-    if (!sb || !rc) return false;
-    if (rc.firstElementChild !== sb) rc.insertBefore(sb, rc.firstChild);
+    if (!sb || !rc || !rightSettled(rc)) return false;
+    if (rc.lastElementChild !== sb) rc.appendChild(sb); // never steal firstChild
     return true;
+  }
+  // Collapse/expand the native right-column blocks via a class on those
+  // nodes themselves (sb is now the LAST child, so CSS sibling
+  // combinators can no longer reach them).
+  function setNativeCollapsed(collapsed) {
+    const sb = document.getElementById('bili-comments-sidebar');
+    const rc = sb && sb.parentElement;
+    if (!rc) return;
+    [...rc.children].forEach(el => {
+      if (el !== sb) el.classList.toggle('bcs-native-hide', collapsed);
+    });
   }
 
   function applyLayout() {
@@ -910,7 +936,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.2-diag mode=' + BCS_MODE +
+  console.log('[BCS] v2.3 mode=' + BCS_MODE +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
