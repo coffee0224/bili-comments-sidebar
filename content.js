@@ -14,6 +14,13 @@
   const BCS_MODE = (() => {
     try { return localStorage.getItem('bcsMode') || 'full'; } catch (e) { return 'full'; }
   })();
+  // boot pacing: 'fast' (default, v2.7) ends the boot window as soon as
+  // we're mounted — setTab('简介')'s wake() promotes data-src/eager and
+  // dispatches scroll so bilibili's lazy loader recovers on un-collapse.
+  // 'safe' restores the old "wait until native imgs complete" pacing.
+  const BCS_BOOT = (() => {
+    try { return localStorage.getItem('bcsBoot') === 'safe' ? 'safe' : 'fast'; } catch (e) { return 'fast'; }
+  })();
   const MODE = {
     style:  !['off', 'nostyle'].includes(BCS_MODE),
     mount:  !['off', 'nomount'].includes(BCS_MODE),
@@ -361,7 +368,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.6</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v2.7</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -509,13 +516,20 @@
         const imgs = [...rc.querySelectorAll('img')];
         const ready = imgs.length > 0 && imgs.every(i => i.complete);
         const t = Date.now() - t0;
-        if ((ready && t >= 1500) || t >= 6000 || Date.now() - abs0 > 10000) {
+        // fast: natives are settled (rightSettled gated the mount) and we
+        // appended LAST, so the registry formed unimpeded — remaining lazy
+        // loads recover via setTab('简介')'s wake(). Finish on first tick.
+        // safe: old pacing — wait for every img complete (floor 1.5s).
+        const done = BCS_BOOT === 'fast'
+          ? t >= 250
+          : (ready && t >= 1500) || t >= 6000 || Date.now() - abs0 > 10000;
+        if (done) {
           clearInterval(bootPoll);
           S.bootDone = true;
           sb.classList.remove('bcs-boot');
           mountSidebar(); // reposition sb LAST→FIRST child now that boot is over
           if (S.tabMode !== 'intro') setNativeCollapsed(true);
-          console.log('[BCS] boot 完成', { mounted: true, t, ready, imgs: imgs.length });
+          console.log('[BCS] boot 完成', { boot: BCS_BOOT, mounted: true, t, ready, imgs: imgs.length });
         }
       }, 250);
     };
@@ -964,7 +978,7 @@
     load(true);
   }
 
-  console.log('[BCS] v2.6 mode=' + BCS_MODE +
+  console.log('[BCS] v2.7 mode=' + BCS_MODE + ' boot=' + BCS_BOOT +
     ' style:' + MODE.style + ' mount:' + MODE.mount +
     ' fetch:' + MODE.fetch + ' rescue:' + MODE.rescue);
   if (BCS_MODE !== 'off') {
