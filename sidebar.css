@@ -84,6 +84,20 @@
   --lv-pink-bg:   rgba(232,69,119,0.08);
 }
 
+/* ---- Layout: visual-first WITHOUT DOM moves ----
+   bili-header re-mounts with fragment anchors; reordering
+   .right-container's children crashed its patch (nextSibling of null
+   → empty #biliMainHeader, site nav gone). So sb stays the LAST DOM
+   child forever; flex order puts it on top visually instead. */
+html.bcs-layout .right-container {
+  display: flex;
+  flex-direction: column;
+}
+
+#bili-comments-sidebar {
+  order: -1;
+}
+
 /* ============================================================
    SHELL — an in-flow block inside B站's .right-container.
    No fixed positioning, no own scroll: the page scrolls.
