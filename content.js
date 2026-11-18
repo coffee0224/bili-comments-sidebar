@@ -339,7 +339,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.6</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.7</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -425,6 +425,27 @@
       sb.classList.toggle('bcs-intro-mode', intro);
       $('J-tab-c').classList.toggle('on', !intro);
       $('J-tab-i').classList.toggle('on', intro);
+      if (intro) {
+        // The native right column lazy-loads its images (data-src → src on
+        // scroll-into-view). While our comments tab hid the siblings with
+        // display:none, that loader never fired — and because comments
+        // scroll INSIDE #J-scroll, no window scroll event ever happens to
+        // wake it up. Force it: promote data-src ourselves and dispatch
+        // scroll/resize so bilibili's own listeners re-evaluate.
+        const wake = () => {
+          const parent = sb.parentElement;
+          if (!parent) return;
+          parent.querySelectorAll('img').forEach(img => {
+            const ds = img.dataset.src || img.dataset.original;
+            const s = img.getAttribute('src') || '';
+            if (ds && (!s || s.startsWith('data:'))) img.src = ds;
+          });
+          window.dispatchEvent(new Event('scroll'));
+          window.dispatchEvent(new Event('resize'));
+        };
+        requestAnimationFrame(wake);
+        setTimeout(wake, 350); // some listeners bind after paint
+      }
     };
     S.setTab = setTab;
     $('J-tab-c').onclick = () => setTab('comments');
