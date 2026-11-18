@@ -84,47 +84,50 @@
   --lv-pink-bg:   rgba(232,69,119,0.08);
 }
 
-/* ---- Layout: visual-first WITHOUT DOM moves ----
-   bili-header re-mounts with fragment anchors; reordering
-   .right-container's children crashed its patch (nextSibling of null
-   → empty #biliMainHeader, site nav gone). So sb stays the LAST DOM
-   child forever; flex order puts it on top visually instead. */
-html.bcs-layout .right-container {
-  display: flex;
-  flex-direction: column;
+/* ---- Layout: SIBLING COLUMN, never inside .right-container (v2.12) ----
+   Any foreign node inside .right-container during B站's mount/rebuild
+   window (a) permanently breaks the video-awesome-img lazy registry
+   (grey covers) and (b) crashes bili-header's fragment-anchor remount
+   (nextSibling of null → empty #biliMainHeader → site nav gone).
+   The sidebar therefore lives as the LAST child of
+   .video-container-v1 — a sibling AFTER the native .right-container:
+     comments mode → native column display:none (pure CSS, zero DOM
+                      mutation), our column takes its exact slot
+     intro mode    → our column display:none, native column fully
+                      restored; a fixed #bcs-fab pill on <body> is the
+                      switch-back control */
+html.bcs-layout:not(.bcs-intro-page) .right-container {
+  display: none !important;
 }
-
-#bili-comments-sidebar {
-  order: -1;
+html.bcs-intro-page #bili-comments-sidebar {
+  display: none !important;
 }
 
 /* ============================================================
-   SHELL — an in-flow block inside B站's .right-container.
-   No fixed positioning, no own scroll: the page scrolls.
+   SHELL - in-flow sibling column of .video-container-v1 (flex row),
+   sized to the native .right-container slot it replaces (P13 probe:
+   rc = flex, width 411px on this build). Sticky matches B-station's own
+   right-column follow behavior while the page scrolls.
    ============================================================ */
 #bili-comments-sidebar {
-  /* relative + z-index: bilibili's .video-container-v1 (position:relative,
-     full-width, later in DOM than .right-container) paints above static
-     content in the right column and swallows all clicks. right-container is
-     z-index:auto (no stacking context of its own), so this z-index competes
-     in the root stacking context and lifts the whole sidebar above it. */
-  position: relative;
-  z-index: 10;
-  /* pointer-events: some bilibili page states set pointer-events:none on an
-     ancestor (e.g. .right-container wrappers). Inherited none makes our whole
-     subtree un-hit-testable: real mouse clicks pass through to the page and
-     elementsFromPoint() skips our nodes entirely (which is also why the
-     JS event-rescue could not find anything to forward to). Re-enabling on
-     the subtree root restores hit-testing AND makes the rescue able to see
-     our elements again. */
+  position: sticky;
+  top: 84px;             /* below the fixed mini nav */
+  z-index: 10;           /* .video-container-v1 paints above static content; this lifts us */
+  /* pointer-events: some page states set pointer-events:none on an ancestor.
+     Inherited none makes our whole subtree un-hit-testable: real clicks pass
+     through and elementsFromPoint() skips our nodes. Re-enabling here
+     restores hit-testing AND lets the event-rescue see our elements. */
   pointer-events: auto;
-  width: 100%;
+  align-self: flex-start;
+  flex: 0 0 411px;
+  width: 411px;
+  box-sizing: border-box;
   height: auto;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
 
 /* Smooth color transition when switching themes */
@@ -174,37 +177,40 @@ html.bcs-layout .right-container {
   padding: 2px 8px; border-radius: 10px;
 }
 
-/* ---- tab switching (评论 / 简介) -------------------------------------
-   Exclusive tabs, boot + collapse strategy (v2.3):
-   bisect verdict: inserting our node as the FIRST child of
-   .right-container (or mid-mount) permanently breaks bilibili's
-   video-awesome-img lazy registry — every cover/avatar anchor stays
-   EMPTY (0 <img> page-lifetime). v2.3 therefore appends us as the
-   LAST child, only after the native cards settled, and collapses the
-   native blocks via a class on those nodes (JS-toggled, since sibling
-   combinators can no longer reach them).
-   Boot window: for ~1.5–6s after load/SPA-nav JS adds .bcs-boot,
-   which hides OUR comment blocks so the native content owns the right
-   column and its images mount. Once the images poll complete (or cap)
-   JS drops .bcs-boot and collapses the natives. The 简介 tab lifts
-   the collapse; switching back re-collapses. */
-#bili-comments-sidebar.bcs-boot .bcs-toolbar,
-#bili-comments-sidebar.bcs-boot .bcs-list,
-#bili-comments-sidebar.bcs-boot .bcs-footer { display: none; }
-.bcs-native-hide {
-  height: 0 !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  visibility: hidden !important;
-  /* sticky/fixed children inside must not leak out while collapsed */
-  position: static !important;
+/* ---- Floating switch-back pill (intro mode) --------------------------
+   In intro mode the sidebar column is display:none and the native right
+   column is fully restored; this fixed pill on <body> is the only
+   visible piece of us and the switch-back control. */
+#bcs-fab {
+  position: fixed;
+  right: 28px;
+  top: 96px;
+  z-index: 100000;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fb7299, #ff9ab5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(251,114,153,0.45);
+  pointer-events: auto;
+  transition: transform 0.15s ease;
 }
-/* Intro tab: hide our comment-specific blocks, keep the header row (tabs +
-   theme button) so the user can switch back. */
-#bili-comments-sidebar.bcs-intro-mode .bcs-toolbar,
-#bili-comments-sidebar.bcs-intro-mode .bcs-list,
-#bili-comments-sidebar.bcs-intro-mode .bcs-footer { display: none; }
-#bili-comments-sidebar.bcs-intro-mode .bcs-header-row { margin-bottom: 0; }
+#bcs-fab:hover { transform: scale(1.06); }
+#bcs-fab span {
+  background: rgba(255,255,255,0.28);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+html.bcs-intro-page #bcs-fab { display: inline-flex; }
 .bcs-header-actions {
   display: flex;
   align-items: center;
