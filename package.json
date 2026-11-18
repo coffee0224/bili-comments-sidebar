@@ -1,7 +1,7 @@
 {
   "name": "bili-comments-sidebar-fork",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Bili Comments Sidebar fork - dev/test harness (extension itself has no build step)",
   "scripts": {
     "test": "node --test tests/",

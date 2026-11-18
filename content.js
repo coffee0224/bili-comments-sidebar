@@ -1,5 +1,5 @@
 /* ============================================================
-   Bili Comments Sidebar — fork v3.0 (content script)
+   Bili Comments Sidebar — fork v3.1 (content script)
 
    WHAT THIS DOES
    - Adds a tabbed column over B站's native right column:
@@ -56,8 +56,8 @@
     oid: null,
     upMid: null,
     expanded: {},       // rpid -> { replies:[], done:bool }
-    theme: 'light',     // 'light' matches B站 native page
-    tabMode: 'intro',   // default tab is 简介
+    tabMode: 'intro',   // current tab: 'intro' | 'comments'
+    defaultTab: 'intro',// opening-a-video default (toggled by 💬 button)
     // assigned later: sb (root node), position, setTab
   };
 
@@ -186,7 +186,7 @@
   function createUI() {
     const sb = document.createElement('div');
     sb.id = 'bili-comments-sidebar';
-    sb.className = ''; // theme class ('light') added by applyTheme below
+    sb.className = ''; // light palette is the CSS default now
     sb.innerHTML = `
       <div class="bcs-header">
         <div class="bcs-header-row">
@@ -198,8 +198,8 @@
             </button>
           </div>
           <div class="bcs-header-actions">
-            <button class="bcs-theme-btn" id="J-theme" title="切换明亮/暗黑模式">
-              <svg id="J-theme-icon" viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"/></svg>
+            <button class="bcs-dtab-btn" id="J-dtab" title="新视频默认打开评论：关">
+              <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
             </button>
           </div>
         </div>
@@ -221,7 +221,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.0.0</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v3.1.0</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -238,32 +238,20 @@
       if (t && t.dataset.t) seekVideo(parseTimeSec(t.dataset.t));
     });
 
-    // theme toggle (persisted via chrome.storage.local)
-    $('J-theme').onclick = () => {
-      S.theme = S.theme === 'dark' ? 'light' : 'dark';
-      applyTheme();
-      try { chrome.storage.local.set({ _bcsTheme: S.theme }); } catch (e) {}
+    // default-tab toggle (persisted via chrome.storage.local):
+    // 💬 on = every newly opened video starts on the 评论 tab
+    const syncDtabBtn = () => {
+      const on = S.defaultTab === 'comments';
+      const b = $('J-dtab');
+      b.classList.toggle('on', on);
+      b.title = `新视频默认打开评论：${on ? '开' : '关'}`;
     };
-
-    function applyTheme() {
-      const sb = $('bili-comments-sidebar');
-      const icon = $('J-theme-icon');
-      if (S.theme === 'light') {
-        sb.classList.add('light');
-        icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>'; // moon
-      } else {
-        sb.classList.remove('light');
-        icon.innerHTML = '<path d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"/>'; // sun
-      }
-    }
-
-    // apply saved theme (default light)
-    applyTheme();
-    try {
-      chrome.storage.local.get('_bcsTheme', (r) => {
-        if (r._bcsTheme) { S.theme = r._bcsTheme; applyTheme(); }
-      });
-    } catch (e) {}
+    $('J-dtab').onclick = () => {
+      S.defaultTab = S.defaultTab === 'comments' ? 'intro' : 'comments';
+      syncDtabBtn();
+      try { chrome.storage.local.set({ _bcsDefaultTab: S.defaultTab }); } catch (e) {}
+    };
+    syncDtabBtn();
 
     // comment sort
     $$('#J-csort .bcs-pill').forEach(b => b.onclick = () => {
@@ -310,7 +298,7 @@
     S.setTab = setTab;
     $('J-tab-c').onclick = () => setTab('comments');
     $('J-tab-i').onclick = () => setTab('intro');
-    setTab('intro'); // establish the html class before first paint
+    setTab(S.defaultTab); // establish the html class before first paint
 
     // jump: scroll list to top
     $('J-jump').onclick = () => {
@@ -667,7 +655,7 @@
         S.oid = null; S.upMid = null;
         S.comments = []; S.page = 1;
         S.hasMore = true; S.expanded = {};
-        if (S.setTab) S.setTab('intro'); // new video → default to 简介 tab
+        if (S.setTab) S.setTab(S.defaultTab); // new video → user's default tab
         setTimeout(() => { load(true); }, 800);
       }
     }).observe(document.body, { childList: true, subtree: true });
@@ -677,13 +665,26 @@
      INIT
      ============================================================ */
   function init() {
+    // read the default-tab preference BEFORE building the UI so the
+    // first paint and the 💬 button state are already correct
+    try {
+      chrome.storage.local.get('_bcsDefaultTab', (r) => {
+        if (r._bcsDefaultTab) S.defaultTab = r._bcsDefaultTab;
+        boot();
+      });
+    } catch (e) {
+      boot();
+    }
+  }
+
+  function boot() {
     createUI();
     applyLayout();
     watchUrl();
     load(true);
   }
 
-  console.log('[BCS] v3.0.0 ready');
+  console.log('[BCS] v3.1.0 ready');
   if (document.readyState === 'loading')
     document.addEventListener('DOMContentLoaded', init);
   else

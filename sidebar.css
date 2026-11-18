@@ -1,50 +1,8 @@
 /* ============================================================
-   THEME VARIABLES
+   THEME VARIABLES — single light palette (matches B站 native
+   right column; the dark theme was removed with the toggle)
    ============================================================ */
-
-/* ---- Dark ---- */
 #bili-comments-sidebar {
-  --bg:           #111827;
-  --bg-header:    #0d1117;
-  --bg-hover:     rgba(255,255,255,0.012);
-  --bg-subtle:    rgba(255,255,255,0.03);
-  --bg-btn:       rgba(255,255,255,0.05);
-  --bg-btn-hover: rgba(255,255,255,0.1);
-  --bg-pill-on:   rgba(88,166,255,0.12);
-  --bg-pill-pink: rgba(251,114,153,0.12);
-  --bg-pic:       #1e293b;
-  --bg-sticky:    #111827;
-  --bg-sticky-btn:#1e293b;
-  --border:       #1e293b;
-  --border-strong:#334155;
-  --text:         #d1d5db;
-  --text-body:    #d1d5db;
-  --text-reply:   #9ca3af;
-  --text-muted:   #6b7280;
-  --text-faint:   #4b5563;
-  --text-dim:     #374151;
-  --accent:       #58a6ff;
-  --accent-light: #79c0ff;
-  --pink:         #fb7299;
-  --green:        #56d364;
-  --yellow:       #ffc107;
-  --link:         #58a6ff;
-  --hl-bg:        rgba(251,114,153,0.2);
-  --scrollbar:    rgba(255,255,255,0.07);
-  --scrollbar-h:  rgba(255,255,255,0.14);
-  --shadow-sticky:rgba(0,0,0,0.4);
-  --spinner-track:#1e293b;
-  --thread-d1:    #1e3a5f;
-  --thread-d2:    #3b1f3b;
-  --thread-d3:    #1f3b2a;
-  --lv-gray-bg:   rgba(107,114,128,0.1);
-  --lv-green-bg:  rgba(86,211,100,0.08);
-  --lv-blue-bg:   rgba(88,166,255,0.08);
-  --lv-pink-bg:   rgba(251,114,153,0.08);
-}
-
-/* ---- Light (default: matches B站 native right column) ---- */
-#bili-comments-sidebar.light {
   --bg:           #ffffff;
   --bg-header:    #ffffff;
   --bg-hover:     rgba(0,0,0,0.02);
@@ -136,7 +94,7 @@ html.bcs-intro-page .right-container-inner {
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
 }
 
-/* Smooth color transition when switching themes */
+/* Smooth hover/color transitions */
 #bili-comments-sidebar,
 #bili-comments-sidebar * {
   transition-property: background-color, color, border-color, box-shadow;
@@ -188,22 +146,27 @@ html.bcs-intro-page .right-container-inner {
   align-items: center;
   gap: 6px;
 }
-.bcs-theme-btn {
+/* default-tab toggle: 💬 = "new videos open on the 评论 tab".
+   On = pink highlight. */
+.bcs-dtab-btn {
   width: 28px; height: 28px;
   border-radius: 6px;
   border: none;
   background: var(--bg-btn);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 15px;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
-.bcs-theme-btn:hover {
+.bcs-dtab-btn:hover {
   background: var(--bg-btn-hover);
   color: var(--text);
 }
-.bcs-theme-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.bcs-dtab-btn.on {
+  background: var(--bg-pill-pink);
+  color: var(--pink);
+}
+.bcs-dtab-btn svg { width: 15px; height: 15px; fill: currentColor; }
 
 /* ============================================================
    TOOLBAR
