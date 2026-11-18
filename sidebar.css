@@ -136,18 +136,42 @@
   justify-content: space-between;
   margin-bottom: 10px;
 }
-.bcs-title {
-  font-size: 14px; font-weight: 700;
-  color: var(--accent);
-  display: flex; align-items: center; gap: 8px;
+.bcs-tabs {
+  display: flex; align-items: center; gap: 4px;
 }
-.bcs-title svg { fill: var(--accent); }
-.bcs-title .cnt {
+.bcs-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid transparent; background: transparent;
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s;
+}
+.bcs-tab:hover { color: var(--text); }
+.bcs-tab.on {
+  color: var(--accent);
+  background: var(--bg-pill-on);
+  border-color: var(--border);
+}
+.bcs-tab svg { fill: currentColor; }
+.bcs-tab .cnt {
   font-size: 11px; font-weight: 500;
   background: var(--bg-pill-on);
   color: var(--accent-light);
   padding: 2px 8px; border-radius: 10px;
 }
+
+/* ---- tab switching (评论 / 简介) -------------------------------------
+   Comments tab (default, no class): hide the native right-column content
+   that follows us in .right-container. We are its first child, so the
+   general sibling selector covers every native sibling, including ones
+   bilibili re-creates on SPA navigation. !important beats inline styles. */
+#bili-comments-sidebar:not(.bcs-intro-mode) ~ * { display: none !important; }
+/* Intro tab: hide our comment-specific blocks, keep the header row (tabs +
+   theme button) so the user can switch back. */
+#bili-comments-sidebar.bcs-intro-mode .bcs-toolbar,
+#bili-comments-sidebar.bcs-intro-mode .bcs-list,
+#bili-comments-sidebar.bcs-intro-mode .bcs-footer { display: none; }
+#bili-comments-sidebar.bcs-intro-mode .bcs-header-row { margin-bottom: 0; }
 .bcs-header-actions {
   display: flex;
   align-items: center;

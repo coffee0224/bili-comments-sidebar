@@ -308,9 +308,12 @@
     sb.innerHTML = `
       <div class="bcs-header">
         <div class="bcs-header-row">
-          <div class="bcs-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-            评论 <span class="cnt" id="J-cnt">0</span>
+          <div class="bcs-tabs">
+            <button class="bcs-tab on" id="J-tab-c" title="视频评论">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+              评论 <span class="cnt" id="J-cnt">0</span>
+            </button>
+            <button class="bcs-tab" id="J-tab-i" title="B站右栏原内容（相关视频等）">简介</button>
           </div>
           <div class="bcs-header-actions">
             <button class="bcs-theme-btn" id="J-theme" title="切换明亮/暗黑模式">
@@ -336,7 +339,7 @@
       <div class="bcs-list" id="J-scroll"><div id="J-list"></div><div class="bcs-sentinel" id="J-sentinel"></div></div>
       <div class="bcs-footer">
         <span id="J-info"></span>
-        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.5</span>
+        <span class="bcs-ver" title="Bili Comments Sidebar fork build">v1.6</span>
         <button class="bcs-footer-btn" id="J-jump">⬆ 回到顶部</button>
       </div>
     `;
@@ -411,6 +414,21 @@
 
     // refresh
     $('J-refresh').onclick = () => { S.expanded = {}; load(true); };
+
+    // ---- tabs: 评论 / 简介(B站右栏原内容) ------------------------------
+    // Exclusive switching: comments mode hides the native right-column
+    // siblings via CSS (see #bili-comments-sidebar:not(.bcs-intro-mode) ~ *),
+    // intro mode hides our comment-specific blocks. The header row with the
+    // two tabs stays visible in both modes.
+    const setTab = mode => {
+      const intro = mode === 'intro';
+      sb.classList.toggle('bcs-intro-mode', intro);
+      $('J-tab-c').classList.toggle('on', !intro);
+      $('J-tab-i').classList.toggle('on', intro);
+    };
+    S.setTab = setTab;
+    $('J-tab-c').onclick = () => setTab('comments');
+    $('J-tab-i').onclick = () => setTab('intro');
 
     // jump: scroll list to top
     $('J-jump').onclick = () => {
@@ -793,6 +811,7 @@
         S.oid = null; S.upMid = null;
         S.comments = []; S.page = 1;
         S.hasMore = true; S.expanded = {};
+        if (S.setTab) S.setTab('comments'); // new video → reset to comments tab
         setTimeout(() => { load(true); }, 800);
       }
     }).observe(document.body, { childList: true, subtree: true });
