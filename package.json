@@ -3,6 +3,7 @@
   "private": true,
   "version": "3.4.1",
   "description": "Bili Comments Sidebar fork - dev/test harness (extension itself has no build step)",
+  "license": "MIT",
   "scripts": {
     "test": "node --test",
     "check": "node --check lib.js && node --check content.js"

@@ -56,3 +56,7 @@ npm run check # node --check lib.js content.js
 ## 致谢
 
 基于商店版 [Bili Comments Sidebar](https://chromewebstore.google.com/detail/bili-comments-sidebar/lepfkokibljdknhnmhokknpfkibckblm) 1.3.0 的本地 fork，重构并扩展。
+
+## 许可证
+
+[MIT](LICENSE)
