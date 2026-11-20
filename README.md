@@ -2,8 +2,6 @@
 
 一个 Edge/Chrome 扩展（Manifest V3），为 Bilibili 视频页面提供左视频、右评论栏的双栏浏览体验。
 
-基于商店版 [Bili Comments Sidebar](https://chromewebstore.google.com/detail/bili-comments-sidebar/lepfkokibljdknhnmhokknpfkibckblm) 1.3.0 的本地 fork，重构并扩展。
-
 ![screenshot](docs/screenshot.png)
 
 ## 功能特性
@@ -49,8 +47,12 @@
 ## 开发
 
 ```bash
-npm test      # node --test tests/  （需要 Node 18+）
+npm test      # node --test （需要 Node 18+）
 npm run check # node --check lib.js content.js
 ```
 
 纯逻辑在 `lib.js`（有单元测试），DOM 层在 `content.js`，样式在 `sidebar.css`。
+
+## 致谢
+
+基于商店版 [Bili Comments Sidebar](https://chromewebstore.google.com/detail/bili-comments-sidebar/lepfkokibljdknhnmhokknpfkibckblm) 1.3.0 的本地 fork，重构并扩展。
