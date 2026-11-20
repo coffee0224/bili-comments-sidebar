@@ -24,10 +24,13 @@
 
 ## 安装
 
-1. `edge://extensions` 打开「开发人员模式」。
-2. 若装过商店版 Bili Comments Sidebar，先停用它（避免双份注入）。
-3. 「加载解压缩的扩展」选择本目录。
-4. 每次修改代码后在 edge://extensions 点「重新加载」，并 **F5 刷新已打开的视频页**（扩展重载不会重新注入旧标签页）。底部版本徽标可确认新脚本已生效。
+1. 从 [Releases](https://github.com/coffee0224/bili-comments-sidebar/releases) 下载最新版 `bili-comments-sidebar-vX.Y.Z.zip` 并解压到本地（任意固定位置，安装后不要删除）。
+2. 打开 `edge://extensions`（Edge）或 `chrome://extensions`（Chrome），开启「开发人员模式」。
+3. 点击「加载解压缩的扩展」，选择解压出的文件夹。
+4. 若装过商店版 Bili Comments Sidebar，先停用它（避免双份注入）。
+5. 打开任意 B站 视频页即可。升级版本时：下载新版 zip 覆盖解压目录 → 扩展页点「重新加载」→ F5 刷新已打开的视频页。底部版本徽标可确认新脚本已生效。
+
+> 开发者：直接 clone 本仓库，同上以仓库目录「加载解压缩」即可；改码后在扩展页点「重新加载」。
 
 ## 使用说明
 
