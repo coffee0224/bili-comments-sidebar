@@ -1,4 +1,4 @@
-# Bili Comments Sidebar / B站评论侧栏
+<h1><img src="icons/icon128.png" width="48" alt="logo" valign="middle" />&nbsp; Bili Comments Sidebar / B站评论侧栏</h1>
 
 一个 Edge/Chrome 扩展（Manifest V3），为 Bilibili 视频页面提供左视频、右评论栏的双栏浏览体验。
 
