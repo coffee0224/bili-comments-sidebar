@@ -1,7 +1,7 @@
 ﻿{
   "manifest_version": 3,
   "name": "Bili Comments Sidebar",
-  "version": "3.5.3",
+  "version": "3.5.4",
   "description": "一个 Edge/Chrome 扩展（Manifest V3），为 Bilibili 视频页面提供左视频、右评论栏的双栏浏览体验。",
   "icons": {
     "16": "icons/icon16.png",
