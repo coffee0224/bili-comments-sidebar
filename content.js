@@ -586,7 +586,9 @@
     head.className = 'bcs-c-head';
     head.innerHTML = `
       <a ${avAttrs}><img class="bcs-av" src="${avatarSrc}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${avatarFull}'"/></a>
-      <span class="bcs-un${isUp ? ' up' : ''}">${esc(m.uname || '匿名')}</span>
+      ${spaceUrl
+        ? `<a class="bcs-un${isUp ? ' up' : ''}" href="${spaceUrl}" target="_blank" rel="noopener noreferrer">${esc(m.uname || '匿名')}</a>`
+        : `<span class="bcs-un${isUp ? ' up' : ''}">${esc(m.uname || '匿名')}</span>`}
       ${isUp ? '<span class="bcs-tag up-tag">UP主</span>' : ''}
       ${c._top ? '<span class="bcs-tag top-tag">置顶</span>' : ''}
       ${isRoot ? `<span class="bcs-lv l${lv}">Lv${lv}</span>` : ''}

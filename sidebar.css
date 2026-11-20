@@ -316,12 +316,13 @@ html.bcs-intro-page .right-container-inner {
 .bcs-av-link:hover .bcs-av { box-shadow: 0 0 0 2px var(--accent); }
 
 .bcs-un {
-  font-size: 12px; font-weight: 600;
-  color: var(--accent);
+  font-size: 11px; font-weight: 400;
+  color: #f87197;
   max-width: 150px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
-.bcs-un.up { color: var(--pink); }
+a.bcs-un { text-decoration: none; cursor: pointer; }
+a.bcs-un:hover { text-decoration: underline; }
 
 .bcs-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
 .bcs-tag.up-tag { background: var(--bg-pill-pink); color: var(--pink); }
