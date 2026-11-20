@@ -9,7 +9,7 @@
   --bg-subtle:    rgba(0,0,0,0.03);
   --bg-btn:       rgba(0,0,0,0.04);
   --bg-btn-hover: rgba(0,0,0,0.08);
-  --bg-pill-on:   rgba(0,130,180,0.1);
+  --bg-pill-on:   rgba(0,174,236,0.1);
   --bg-pill-pink: rgba(251,114,153,0.1);
   --bg-pic:       #e9ecef;
   --bg-sticky:    #ffffff;
@@ -22,12 +22,12 @@
   --text-muted:   #868e96;
   --text-faint:   #adb5bd;
   --text-dim:     #ced4da;
-  --accent:       #0082b4;
-  --accent-light: #00a1d6;
+  --accent:       #00aeec;
+  --accent-light: #3ec3f7;
   --pink:         #e84577;
   --green:        #2b9348;
   --yellow:       #e6a800;
-  --link:         #0082b4;
+  --link:         #00aeec;
   --hl-bg:        rgba(251,114,153,0.15);
   --scrollbar:    rgba(0,0,0,0.08);
   --scrollbar-h:  rgba(0,0,0,0.16);
@@ -38,7 +38,7 @@
   --thread-d3:    #c5e6cf;
   --lv-gray-bg:   rgba(107,114,128,0.08);
   --lv-green-bg:  rgba(43,147,72,0.08);
-  --lv-blue-bg:   rgba(0,130,180,0.08);
+  --lv-blue-bg:   rgba(0,174,236,0.08);
   --lv-pink-bg:   rgba(232,69,119,0.08);
 }
 
@@ -361,7 +361,7 @@ a.bcs-un:hover { text-decoration: underline; }
 /* ---- @mentions (lib.linkifyMentions / highlightAt) ---- */
 .bcs-c-body .bcs-at {
   color: var(--link);
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   padding: 0 1px;
   border-radius: 3px;
@@ -441,7 +441,7 @@ a.bcs-un:hover { text-decoration: underline; }
   margin: 0;
   background: var(--bg-sticky-btn);
   border-color: var(--border-strong);
-  font-weight: 600;
+  font-weight: 400;
   box-shadow: 0 -2px 12px var(--shadow-sticky);
 }
 .bcs-sticky-collapse .bcs-more-btn:hover {
