@@ -183,6 +183,61 @@ const BCSLib = (() => {
   }
 
   /* ============================================================
+     @MENTION LINKIFY
+     B站 API 在 reply.content.members[] 里给出被 @ 用户的
+     {mid, uname}。"@uname" 变成可点击 anchor 跳 space.bilibili.com。
+     无 members 数据时退化为纯高亮（无链接）。
+     输入是已转义 HTML：用 esc(uname) 做 split/join 匹配，
+     不走正则，uname 中的正则元字符安全；只动文本段。
+     ============================================================ */
+
+  function mentionAnchor(mb) {
+    const escd = esc(mb.uname);
+    return `<a class="bcs-at" href="https://space.bilibili.com/${mb.mid}" ` +
+      `target="_blank" rel="noopener noreferrer nofollow" title="查看 ${escd} 的主页">@${escd}</a>`;
+  }
+
+  function linkifyMentions(html, members) {
+    const valid = (members || []).filter(m => m && m.mid && m.uname);
+    if (valid.length === 0) return highlightAt(html);
+    // Renamed users: message keeps the OLD handle ("@old_name") while
+    // members[].uname is the new one — exact match fails. Members appear
+    // in message order, so leftover @runs are zipped with leftover
+    // members in order (shared across text runs via this pool).
+    const pool = [];
+    let poolIdx = 0;
+    return mapTextRuns(html, (t) => {
+      if (!t.includes('@')) return t;
+      let out = t;
+      const used = new Set();
+      for (const mb of valid) {
+        const target = '@' + esc(mb.uname);
+        if (out.includes(target)) {
+          out = out.split(target).join(mentionAnchor(mb));
+          used.add(mb);
+        }
+      }
+      const left = valid.filter(mb => !used.has(mb));
+      if (left.length && pool.length === 0) pool.push(...left);
+      out = out.replace(/(^|\s)@([^\s@，。,.；;]{1,30})/g, (m0, pre, name) => {
+        const mb = pool[poolIdx++];
+        return mb ? pre + `<a class="bcs-at" href="https://space.bilibili.com/${mb.mid}" ` +
+          `target="_blank" rel="noopener noreferrer nofollow" title="查看 ${esc(mb.uname)} 的主页">@${name}</a>` : m0;
+      });
+      return out;
+    });
+  }
+
+  // Fallback highlight when members[] is absent: an @name without a link.
+  // @ must be at run start or after whitespace — emails (a@b.com) stay plain.
+  const AT_NAME_RE = /(^|\s)@([\w\-.·\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff]{1,30})/g;
+
+  function highlightAt(html) {
+    return mapTextRuns(html, t =>
+      t.replace(AT_NAME_RE, '$1<span class="bcs-at">@$2</span>'));
+  }
+
+  /* ============================================================
      URL LINKIFY
      Raw http(s) URLs in comment text become clickable anchors
      (target=_blank, so B站's tab is left alone). Only text runs are
@@ -256,6 +311,8 @@ const BCSLib = (() => {
     TIME_RE,
     linkifyTime,
     linkifyUrls,
+    linkifyMentions,
+    highlightAt,
     parseTimeSec,
     highlight,
     applyEmotes,

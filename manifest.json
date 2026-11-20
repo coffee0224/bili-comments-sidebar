@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bili Comments Sidebar",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "description": "左视频+右栏(简介/评论/相关视频)布局,评论时间可点击跳转",
   "icons": {
     "16": "icons/icon16.png",

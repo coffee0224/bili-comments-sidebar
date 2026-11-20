@@ -242,3 +242,58 @@ test('highlight matches when keyword spans the whole string', () => {
   const out = L.highlight('bili', 'bili');
   assert.strictEqual(out, '<span class="bcs-hl">bili</span>');
 });
+
+/* ---------- linkifyMentions / highlightAt ---------- */
+
+test('linkifyMentions links @name to the member space page', () => {
+  const out = L.linkifyMentions(
+    '回复 @老咸鱼A 的评论，说得对',
+    [{ mid: 320773657, uname: '老咸鱼A' }]
+  );
+  assert.ok(out.includes('<a class="bcs-at" href="https://space.bilibili.com/320773657"'));
+  assert.ok(out.includes('>@老咸鱼A</a>'));
+  assert.ok(out.startsWith('回复 '));
+  assert.ok(out.endsWith(' 的评论，说得对'));
+});
+
+test('linkifyMentions matches escaped uname and leaves tags alone', () => {
+  const out = L.linkifyMentions(
+    '&lt;p&gt;@A&amp;B 你好&lt;/p&gt;',
+    [{ mid: 42, uname: 'A&B' }]
+  );
+  // tags untouched, only @A&amp;B inside the text run becomes an anchor
+  assert.ok(out.includes('&lt;p&gt;<a class="bcs-at" href="https://space.bilibili.com/42"'));
+  assert.ok(out.includes('>@A&amp;B</a> 你好&lt;/p&gt;'));
+});
+
+test('linkifyMentions: no members array -> highlightAt fallback', () => {
+  assert.strictEqual(L.linkifyMentions('@someone hi', null), '<span class="bcs-at">@someone</span> hi');
+  assert.strictEqual(L.linkifyMentions('@someone hi', []), '<span class="bcs-at">@someone</span> hi');
+});
+
+test('linkifyMentions: renamed member — old @handle still links to mid', () => {
+  // message keeps "@soul040309", member renamed to 為什麼會變成這樣
+  const out = L.linkifyMentions(
+    '回复 @soul040309 :看来是今年上半年',
+    [{ mid: '24871613', uname: '為什麼會變成這樣' }]
+  );
+  assert.ok(out.includes('href="https://space.bilibili.com/24871613"'));
+  assert.ok(out.includes('>@soul040309</a>'));
+});
+
+test('linkifyMentions: members present but invalid -> falls back to highlightAt', () => {
+  const out = L.linkifyMentions('看 @张三 的视频', [{ mid: 0, uname: '' }]);
+  assert.ok(out.includes('<span class="bcs-at">@张三</span>'));
+  assert.ok(!out.includes('href'));
+});
+
+test('highlightAt highlights @name without a link (fallback)', () => {
+  const out = L.highlightAt('看 @张三 和 @Li_sa_01 的视频 05:12');
+  assert.ok(out.includes('<span class="bcs-at">@张三</span>'));
+  assert.ok(out.includes('<span class="bcs-at">@Li_sa_01</span>'));
+  assert.ok(!out.includes('href'));
+});
+
+test('highlightAt leaves a lone @ alone', () => {
+  assert.strictEqual(L.highlightAt('my email is a@b.com'), 'my email is a@b.com');
+});

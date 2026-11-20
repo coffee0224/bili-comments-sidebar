@@ -38,7 +38,7 @@
   const {
     bvidFromPath, videoInfoFromHtml, buildTree, timeAgo, esc,
     imgUrl, fmtMsg, fmtLike, linkifyTime, linkifyUrls, parseTimeSec, highlight,
-    applyEmotes, renderPictures,
+    linkifyMentions, applyEmotes, renderPictures,
   } = BCSLib;
 
   /* ============================================================
@@ -564,6 +564,7 @@
 
     let body = fmtMsg(ct.message);
     body = applyEmotes(body, ct.emote);
+    body = linkifyMentions(body, ct.members);
     body = linkifyTime(body);
     body = linkifyUrls(body);
     if (S.filter) body = highlight(body, S.filter);

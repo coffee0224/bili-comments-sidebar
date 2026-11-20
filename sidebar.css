@@ -357,6 +357,17 @@ html.bcs-intro-page .right-container-inner {
 }
 .bcs-c-body a.bcs-link:hover { text-decoration: underline; }
 
+/* ---- @mentions (lib.linkifyMentions / highlightAt) ---- */
+.bcs-c-body .bcs-at {
+  color: var(--link);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 3px;
+}
+.bcs-c-body a.bcs-at { text-decoration: none; }
+.bcs-c-body a.bcs-at:hover { text-decoration: underline; background: rgba(64,158,255,.12); }
+
 /* ---- Pictures ---- */
 .bcs-pics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .bcs-pic-link {
