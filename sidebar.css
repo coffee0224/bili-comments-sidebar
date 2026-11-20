@@ -311,6 +311,10 @@ html.bcs-intro-page .right-container-inner {
 }
 .bcs-replies-wrap .bcs-av { width: 20px; height: 20px; }
 
+/* clickable avatar -> user space page */
+.bcs-av-link { display: inline-flex; flex-shrink: 0; line-height: 0; }
+.bcs-av-link:hover .bcs-av { box-shadow: 0 0 0 2px var(--accent); }
+
 .bcs-un {
   font-size: 12px; font-weight: 600;
   color: var(--accent);

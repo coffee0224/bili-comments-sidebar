@@ -575,10 +575,16 @@
     // header
     const avatarSrc = imgUrl(m.avatar, '@48w_48h.webp');
     const avatarFull = imgUrl(m.avatar);
+    // clickable avatar & username -> user space page (space.bilibili.com/{mid})
+    const spaceUrl = m.mid ? `https://space.bilibili.com/${m.mid}` : '';
+    const avAttrs = spaceUrl
+      ? `class="bcs-av-link" href="${spaceUrl}" target="_blank" rel="noopener noreferrer" title="查看 ${esc(m.uname || '该用户')} 的主页"`
+      : 'style="display:contents"';
+
     const head = document.createElement('div');
     head.className = 'bcs-c-head';
     head.innerHTML = `
-      <img class="bcs-av" src="${avatarSrc}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${avatarFull}'"/>
+      <a ${avAttrs}><img class="bcs-av" src="${avatarSrc}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${avatarFull}'"/></a>
       <span class="bcs-un${isUp ? ' up' : ''}">${esc(m.uname || '匿名')}</span>
       ${isUp ? '<span class="bcs-tag up-tag">UP主</span>' : ''}
       ${c._top ? '<span class="bcs-tag top-tag">置顶</span>' : ''}
